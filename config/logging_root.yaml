@@ -1,0 +1,26 @@
+
+version: 1
+
+formatters:
+  standard:
+    format: '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    datefmt: '%Y-%m-%d %H:%M:%S'
+  # additional formats can be defined here
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    formatter: standard
+    level: INFO
+  file:
+    class: logging.FileHandler
+    filename: logs/root.log
+    formatter: standard
+    level: DEBUG
+    # additional handlers can be defined here
+
+loggers:
+  '':                               # root logger
+    handlers: [console, file]
+    level: DEBUG                    # minimum level to capture for handlers
+    # additional loggers can be defined here

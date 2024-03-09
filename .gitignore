@@ -1,0 +1,28 @@
+
+# Python
+__pycache__
+*.py[cod]
+
+# Data
+data/
+tmp/
+
+# Logs
+logs/
+*.log
+
+# Distribution / packaging
+build/
+dist/
+wheels/
+lib/
+
+# IDE
+.idea/
+.vscode/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# OSX
+.DS_Store
