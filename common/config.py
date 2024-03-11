@@ -1,5 +1,4 @@
-
-
+import json
 import logging.config
 import os
 import sys
@@ -50,6 +49,14 @@ class PathRegistry:
 
         return service_config
 
+    @classmethod
+    def glob_config(cls, glob: str) -> list[Path]:
+        files = list(cls.PATH_CONFIG.glob(glob))
+        if os.environ.get('LOCAL_SERVICE_NAME') is not None:
+            files.extend(cls.PATH_ROOT.parent.parent.joinpath('config').glob(glob))
+
+        return files
+
 
 def setup_logging():
     def merge_logging_configs(paths: Iterable[Path], allow_overwrite: bool = False) -> dict[str, Any]:
@@ -74,13 +81,14 @@ def setup_logging():
 
         return merged_config
 
-    files_config_logs = PathRegistry.get_config_file('logging_root.yaml')
-    cfg = merge_logging_configs([files_config_logs])
+    files_config_logs = PathRegistry.glob_config('logging_*.yaml')
+    cfg = merge_logging_configs(files_config_logs)
     # file paths
     for handler_dic in cfg['handlers'].values():
         if 'filename' in handler_dic:
             handler_dic['filename'] = str(PathRegistry.PATH_LOGS / Path(handler_dic['filename']).name)
 
+    print(f'logging config:\n{json.dumps(cfg, indent=2)}')
     logging.config.dictConfig(cfg)
 
 
