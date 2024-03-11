@@ -11,7 +11,7 @@ config.setup(__file__)
 host = config.ServiceRegistry.get_service_hostname('tgbot')
 port = config.ServiceRegistry.SERVICE_TGBOT_PORT
 
-url = f'http://{host}:{port}/enqueue_command'
+url = f'https://{host}:{port}/enqueue_command'
 data = {
     'command': 'send_message',
     'data': {
