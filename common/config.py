@@ -88,7 +88,6 @@ def setup_logging():
         if 'filename' in handler_dic:
             handler_dic['filename'] = str(PathRegistry.PATH_LOGS / Path(handler_dic['filename']).name)
 
-    print(f'logging config:\n{json.dumps(cfg, indent=2)}')
     logging.config.dictConfig(cfg)
 
 
