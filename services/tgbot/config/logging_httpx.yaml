@@ -1,4 +1,0 @@
-
-loggers:
-  httpx:
-    level: WARNING

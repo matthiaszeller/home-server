@@ -11,8 +11,14 @@ config.setup(__file__)
 host = config.ServiceRegistry.get_service_hostname('tgbot')
 port = config.ServiceRegistry.SERVICE_TGBOT_PORT
 
-url = f'https://{host}:{port}/send_message'
-data = {'target': '2186', 'message': 'hello from dummy service!'}
+url = f'http://{host}:{port}/enqueue_command'
+data = {
+    'command': 'send_message',
+    'data': {
+        'chat_id': 1234,
+        'text': 'test message'
+    }
+}
 headers = {"Content-Type": "application/json"}
 
 

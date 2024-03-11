@@ -1,0 +1,11 @@
+
+loggers:
+  httpx:
+    level: WARNING
+
+  httpcore:
+    level: INFO
+
+  telegram:
+    level: INFO
+

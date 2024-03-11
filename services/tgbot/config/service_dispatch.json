@@ -2,7 +2,8 @@
   "version": "1.0",
   "commands": {
     "dummy": {
-      "service": "dummy"
+      "service": "dummy",
+      "admin": true
     }
   }
 }

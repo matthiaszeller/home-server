@@ -1,32 +1,26 @@
 import asyncio
 import logging
-import queue
 
-from flask import Flask, request, jsonify
+from quart import Quart, jsonify, request
 
 # TODO: security of who can interact with bot
 
-app = Flask(__name__)
+app = Quart(__name__)
 message_queue: asyncio.Queue = None
-event_loop: asyncio.BaseEventLoop = None
 
 
-def run_flask_app(shared_queue: asyncio.Queue, _event_loop: asyncio.BaseEventLoop):
-    global message_queue, event_loop
+async def run_flask_app(shared_queue: asyncio.Queue):
+    global message_queue
     message_queue = shared_queue
-
-    app.run(host='0.0.0.0', debug=False, ssl_context='adhoc')
+    try:
+        await app.run_task(host='0.0.0.0', debug=False)
+    except asyncio.CancelledError:
+        logging.info('api server shut down')
 
 
 @app.route('/enqueue_command', methods=['POST'])
-def enqueue_command():
-    command_message = request.json
+async def enqueue_command():
+    command_message = await request.get_json()
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    future = asyncio.run_coroutine_threadsafe(message_queue.put(command_message), loop)
-    logging.debug('before result')
-    future.result()  # Optional: Wait for the item to be enqueued
-    logging.debug('after result')
+    await message_queue.put(command_message)
     return jsonify({'status': 'success', 'message': 'Command enqueued'})
-
