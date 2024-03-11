@@ -2,6 +2,7 @@
 
 import logging.config
 import os
+import sys
 from pathlib import Path
 from typing import Iterable, Any
 
@@ -86,3 +87,7 @@ def setup_logging():
 def setup(call_file):
     PathRegistry.setup(call_file)
     setup_logging()
+
+    # setup python path for local testing
+    if os.environ.get('LOCAL_SERVICE_NAME') is not None:
+        sys.path.insert(0, str(PathRegistry.PATH_ROOT))
