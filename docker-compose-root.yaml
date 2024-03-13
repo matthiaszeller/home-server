@@ -1,0 +1,19 @@
+
+version: "3.8"
+
+services:
+
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"  # HTTP
+      - "433:433" # HTTPS
+    volumes:
+      - ./config/nginx:/etc/nginx/conf.d:ro
+    restart: always
+    networks:
+      - root_net
+
+networks:
+  root_net:
+    driver: bridge
