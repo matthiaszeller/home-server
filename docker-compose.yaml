@@ -1,0 +1,24 @@
+
+version: "3.8"
+
+services:
+
+  tgbot:
+    build:
+      dockerfile: services/tgbot/Dockerfile
+
+    restart: always
+    networks:
+      - app_net
+
+  dummy:
+    build:
+      dockerfile: services/dummy/Dockerfile
+    depends_on:
+      - tgbot
+    networks:
+      - app_net
+
+networks:
+  app_net:
+    driver: bridge
