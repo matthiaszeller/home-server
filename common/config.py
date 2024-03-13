@@ -43,8 +43,8 @@ class PathRegistry:
     def get_config_file(cls, fname: str) -> Path:
         service_config = cls.PATH_CONFIG / fname
         if os.environ.get('LOCAL_SERVICE_NAME') is not None:
-            if not service_config.exists():
-                local_config = cls.PATH_ROOT.parent.parent / 'config' / fname
+            local_config = cls.PATH_ROOT.parent.parent / 'config' / fname
+            if local_config.exists():
                 return local_config
 
         return service_config
