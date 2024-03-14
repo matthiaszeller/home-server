@@ -1,0 +1,23 @@
+
+version: "3.8"
+
+services:
+
+  nginx:
+    image: nginx
+    ports:
+      - "80:80"  # HTTP
+      - "443:443" # HTTPS
+    volumes:
+      - ./config/nginx:/etc/nginx/conf.d:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - /etc/ssl/certs/dhparam.pem:/etc/ssl/certs/dhparam.pem:ro
+      - ./services/nginx/html:/usr/share/nginx/html:ro
+    restart: always
+    # command: ["/bin/sh", "-c", "while :; do sleep 1; done"] # debugging
+    networks:
+      - root_net
+
+networks:
+  root_net:
+    driver: bridge
