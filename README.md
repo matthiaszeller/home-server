@@ -3,6 +3,18 @@
 
 ## Development
 
+### Getting Started
+
+Install pre-commit
+```shell
+pip install pre-commit
+```
+
+Initialize
+```shell
+pre-commit install
+```
+
 ### Adding Services
 
 Create a new directory `services/myservice`, containing:

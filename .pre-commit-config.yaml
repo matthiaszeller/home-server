@@ -1,0 +1,41 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.5.0  # Use the latest version
+    hooks:
+      - id: trailing-whitespace
+        # Removes trailing whitespace at the end of lines.
+      - id: end-of-file-fixer
+        # Ensures that a file is either empty or ends with one newline.
+      - id: check-yaml
+        # Checks YAML files for syntax errors.
+      - id: check-json
+        # Checks JSON files for syntax errors.
+      - id: check-xml
+        # Checks XML files for syntax errors.
+
+  - repo: https://github.com/psf/black
+    rev: 24.2.0  # Use the latest version
+    hooks:
+      - id: black
+        language_version: python3  # Specify your Python version
+        # Formats Python code to adhere to the Black code style.
+
+  - repo: https://github.com/pycqa/flake8
+    rev: 7.0.0  # Use the latest version
+    hooks:
+      - id: flake8
+        additional_dependencies: ['flake8-bugbear', 'flake8-comprehensions']
+        # Lints Python code for errors, with additional checks from plugins.
+
+#  - repo: https://github.com/prettier/prettier
+#    rev: '3.2.5'  # Use the latest version
+#    hooks:
+#      - id: prettier
+#        # Formats JavaScript, CSS, JSON, and other file types.
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.13.0  # Use the latest version
+    hooks:
+      - id: isort
+
+  # Add other repositories and hooks here following the same structure.
