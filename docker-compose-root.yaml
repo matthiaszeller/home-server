@@ -10,14 +10,26 @@ services:
       - "443:443" # HTTPS
     volumes:
       - ./config/nginx:/etc/nginx/conf.d:ro
-      - /etc/letsencrypt:/etc/letsencrypt:ro
+      - ./config/nginx:/certs/:ro
       - /etc/ssl/certs/dhparam.pem:/etc/ssl/certs/dhparam.pem:ro
       - ./services/nginx/html:/usr/share/nginx/html:ro
     restart: always
     # command: ["/bin/sh", "-c", "while :; do sleep 1; done"] # debugging
     networks:
-      - root_net
+      - revproxy_net
+    depends_on:
+      - vouch
+
+  vouch:
+    image: voucher/vouch-proxy
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./config/vouch:/config:ro
+
+    networks:
+      - revproxy_net
 
 networks:
-  root_net:
+  revproxy_net:
     driver: bridge
