@@ -38,6 +38,8 @@ services:
 
     networks:
       - revproxy_net
+    env_file:
+      - ./infrastructure/vouch/.env
 
   debug_nginx_edge:
     build: services/debug_nginx

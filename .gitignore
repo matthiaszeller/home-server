@@ -10,10 +10,9 @@ tmp/
 # Secrets
 secrets
 certs
-*/vouch/config/config.yaml
 *.key
 *.crt
-
+.env
 
 # Logs
 logs/
