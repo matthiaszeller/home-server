@@ -3,30 +3,44 @@ version: "3.8"
 
 services:
 
-  nginx:
+  nginx_edge:
     image: nginx
     ports:
       - "80:80"  # HTTP
       - "443:443" # HTTPS
     volumes:
-      - ./config/nginx:/etc/nginx/conf.d:ro
-      - ./config/nginx:/certs/:ro
+      # SSL Certificates
+      - ./infrastructure/nginx_edge/certs:/certs/edge:ro                                           # certs with public internet
+      - ./infrastructure/nginx_internal/certs/nginxInternal.crt:/certs/internal/nginxInternal.crt   # cert of nginx internal
       - /etc/ssl/certs/dhparam.pem:/etc/ssl/certs/dhparam.pem:ro
-      - ./services/nginx/html:/usr/share/nginx/html:ro
+      # Nginx config file
+      - ./infrastructure/nginx_edge/config:/etc/nginx/conf.d:ro
+      # Nginx static files
+      - ./infrastructure/nginx_edge/html:/usr/share/nginx/html:ro
+
     restart: always
     # command: ["/bin/sh", "-c", "while :; do sleep 1; done"] # debugging
     networks:
       - revproxy_net
     depends_on:
       - vouch
+      - debug_nginx_edge
+    extra_hosts:
+      # access host's network to forward requests to nginx internal, see https://stackoverflow.com/a/24326540/11552622
+      - "host.docker.internal:host-gateway"
 
   vouch:
     image: voucher/vouch-proxy
-    ports:
-      - "9090:9090"
+    # do NOT expose ports: nginx-vouch communication occurs within docker bridge network
+    #                      more secure since I didn't set up SSL between nginx-vouch
     volumes:
-      - ./config/vouch:/config:ro
+      - ./infrastructure/vouch/config:/config:ro
 
+    networks:
+      - revproxy_net
+
+  debug_nginx_edge:
+    build: services/debug_nginx
     networks:
       - revproxy_net
 

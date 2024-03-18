@@ -9,6 +9,11 @@ tmp/
 
 # Secrets
 secrets
+certs
+*/vouch/config/config.yaml
+*.key
+*.crt
+
 
 # Logs
 logs/
