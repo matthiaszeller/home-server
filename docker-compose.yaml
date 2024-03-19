@@ -3,6 +3,13 @@ version: "3.8"
 
 services:
 
+  dns:
+    build: infrastructure/dns
+    env_file:
+      - infrastructure/dns/.env
+    volumes:
+      - ./infrastructure/dns/logs:/app/logs/
+
   nginx_internal:
     image: nginx
     volumes:
