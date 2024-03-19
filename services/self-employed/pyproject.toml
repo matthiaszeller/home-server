@@ -1,0 +1,15 @@
+[tool.poetry]
+name = "self-employed"
+version = "0.1.0"
+description = ""
+authors = ["Matthias Zeller <m.zeller1901@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.10"
+streamlit = "^1.32.2"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

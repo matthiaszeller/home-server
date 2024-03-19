@@ -12,11 +12,12 @@ services:
       # Nginx config file
       - ./infrastructure/nginx_internal/config:/etc/nginx/conf.d:ro
       # Nginx static files
-      - ./infrastructure/nginx_internal/html:/usr/share/nginx/html:ro
+      - ./infrastructure/nginx_internal/html:/app/html:ro
     networks:
       - app_net
     depends_on:
       - debug_nginx_internal
+      - invoice
     ports:
       - "8443:8443"
 
@@ -30,6 +31,11 @@ services:
       dockerfile: services/tgbot/Dockerfile
 
     restart: always
+    networks:
+      - app_net
+
+  invoice:
+    build: services/self-employed
     networks:
       - app_net
 
