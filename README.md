@@ -140,3 +140,13 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout infrastructure/nginx
 mkdir infrastructure/nginx_internal/certs/
 openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout infrastructure/nginx_internal/certs/nginxInternal.key -out infrastructure/nginx_internal/certs/nginxInternal.crt
 ```
+
+
+## Deployment on RaspberryPi
+
+#### Docker stats & Memory usage
+
+If `docker stats` doesn't show any memory usage (0.0%), according to [this post](https://stackoverflow.com/questions/45541242/docker-stats-shows-zero-memory-usage-even-for-running-containers), simply add to `/boot/firmware/cmdline.txt`:
+```
+cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1
+```
