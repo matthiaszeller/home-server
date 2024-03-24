@@ -133,13 +133,32 @@ python -m services.<service_name>.main
 
 - incorporate in the readme instructions for setting up mTLS between nginx_internal and nginx_edge:
 ```shell
-# private key and certificate for Nginx Edge
-mkdir infrastructure/nginx_edge/certs
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout infrastructure/nginx_edge/certs/nginxEdge.key -out infrastructure/nginx_edge/certs/nginxEdge.crt
-# private key and certificate for Nginx Internal
-mkdir infrastructure/nginx_internal/certs/
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 -keyout infrastructure/nginx_internal/certs/nginxInternal.key -out infrastructure/nginx_internal/certs/nginxInternal.crt
+# Generate the certificate for Nginx Edge with "localhost" as the CN
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+-keyout infrastructure/nginx_edge/certs/nginxEdge.key \
+-out infrastructure/nginx_edge/certs/nginxEdge.crt \
+-subj "/CN=localhost"
+
+# Generate the certificate for Nginx Internal with "host.docker.internal" as the CN
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+-keyout infrastructure/nginx_internal/certs/nginxInternal.key \
+-out infrastructure/nginx_internal/certs/nginxInternal.crt \
+-subj "/CN=host.docker.internal"
 ```
+
+- add instructions for nginx SSL certificates with certbot & letsencrypt:
+    - `sudo ln -s /etc/letsencrypt/live/<mydomain>/fullchain.pem infrastructure/nginx_edge/certs/fullchain.pem`
+    - `sudo ln -s /etc/letsencrypt/live/<mydomain>/privkey.pem infrastructure/nginx_edge/certs/privkey.pem`
+
+
+## Troubleshooting
+
+### Connectivity and Firewall
+
+Exposing ports within docker compose should bypass UFW rules.
+However, `nginx_edge` needs to access host net to forward requests to `nginx_internal`, 
+and for that it needs the `host.docker.internal`.
+In my case, I had to **enable port 8443 on UFW** for enabling such inter-nginx communication.
 
 
 ## Deployment on RaspberryPi

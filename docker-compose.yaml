@@ -9,6 +9,7 @@ services:
       # SSL Certificates
       - ./infrastructure/nginx_internal/certs:/certs/internal:ro
       - ./infrastructure/nginx_edge/certs/nginxEdge.crt:/certs/edge/nginxEdge.crt:ro
+      - ./ca.crt:/certs/ca.crt:ro
       # Nginx config file
       - ./infrastructure/nginx_internal/config:/etc/nginx/conf.d:ro
       # Nginx static files
@@ -36,14 +37,6 @@ services:
 
   invoice:
     build: services/self-employed
-    networks:
-      - app_net
-
-  dummy:
-    build:
-      dockerfile: services/dummy/Dockerfile
-    depends_on:
-      - tgbot
     networks:
       - app_net
 

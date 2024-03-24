@@ -13,6 +13,9 @@ services:
       - ./infrastructure/nginx_edge/certs:/certs/edge:ro                                           # certs with public internet
       - ./infrastructure/nginx_internal/certs/nginxInternal.crt:/certs/internal/nginxInternal.crt   # cert of nginx internal
       - /etc/ssl/certs/dhparam.pem:/etc/ssl/certs/dhparam.pem:ro
+      - ./ca.crt:/certs/ca.crt:ro
+      # for symbolic link resolution of certificates
+      - /etc/letsencrypt/:/etc/letsencrypt:ro
       # Nginx config file
       - ./infrastructure/nginx_edge/config:/etc/nginx/conf.d:ro
       # Nginx static files
@@ -30,7 +33,7 @@ services:
       - "host.docker.internal:host-gateway"
 
   vouch:
-    image: voucher/vouch-proxy
+    image: voucher/vouch-proxy:latest-arm
     # do NOT expose ports: nginx-vouch communication occurs within docker bridge network
     #                      more secure since I didn't set up SSL between nginx-vouch
     volumes:

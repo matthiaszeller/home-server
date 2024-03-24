@@ -6,13 +6,13 @@ vouch:
   port: 9090
   allowAllUsers: false
 
-  domains:
-    - localhost
+  #domains:         # VOUCH_DOMAINS
+  #  - localhost
 
   cookie:
     name: VouchCookie
     secure: false
-    domain: localhost
+    #domain: localhost
 
   # no jwt field, let vouch generate its own jwt.secret
 
@@ -40,5 +40,5 @@ oauth:
     - openid
     - email
     - profile
-  callback_url: https://localhost/auth
+  #callback_url: https://localhost/auth   # OAUTH_CALLBACK_URL
   #callback_url: http://vouch:9090/auth
