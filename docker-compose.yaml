@@ -9,6 +9,7 @@ services:
       - infrastructure/dns/.env
     volumes:
       - ./infrastructure/dns/logs:/app/logs/
+    restart: always
 
   nginx_internal:
     image: nginx
@@ -28,24 +29,42 @@ services:
       - invoice
     ports:
       - "8443:8443"
+    restart: always
 
   debug_nginx_internal:
     build: services/debug_nginx
     networks:
       - app_net
-
-  tgbot:
-    build:
-      dockerfile: services/tgbot/Dockerfile
-
     restart: always
-    networks:
-      - app_net
+
+  #tgbot:
+  #  build:
+  #    dockerfile: services/tgbot/Dockerfile
+#
+  #  restart: always
+  #  networks:
+  #    - app_net
 
   invoice:
     build: services/self-employed
     networks:
       - app_net
+    restart: always
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor-arm64:v0.49.1  # Use the version that matches your needs
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    ports:
+      - "8080:8080"
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    restart: always
 
 networks:
   app_net:

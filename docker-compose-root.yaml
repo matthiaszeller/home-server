@@ -24,10 +24,12 @@ services:
     restart: always
     # command: ["/bin/sh", "-c", "while :; do sleep 1; done"] # debugging
     networks:
-      - revproxy_net
+      - edge_to_vouch
+      - edge_to_grafana
     depends_on:
       - vouch
       - debug_nginx_edge
+      - grafana
     extra_hosts:
       # access host's network to forward requests to nginx internal, see https://stackoverflow.com/a/24326540/11552622
       - "host.docker.internal:host-gateway"
@@ -40,15 +42,74 @@ services:
       - ./infrastructure/vouch/config:/config:ro
 
     networks:
-      - revproxy_net
+      - edge_to_vouch
     env_file:
       - ./infrastructure/vouch/.env
+    restart: always
 
   debug_nginx_edge:
     build: services/debug_nginx
     networks:
-      - revproxy_net
+      - edge_to_vouch
+    restart: always
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor-arm64:v0.49.1  # Use the version that matches your needs
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    restart: always
+    networks:
+      - prometheus_to_cadvisor
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - ./services/monitor/config/grafana.ini:/etc/grafana/grafana.ini:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - grafana_to_prometheus
+      - edge_to_grafana
+
+  # Container ingesting and storing cadvisor data
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      # prometheus config file
+      - ./services/monitor/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # persistent storage
+      - prometheus_data:/prometheus
+    # we don't need to access prometheus from host
+    #ports:
+    #   - "9090:9090"
+    networks:
+      - prometheus_to_cadvisor
+      - grafana_to_prometheus
+    depends_on:
+      - cadvisor
+    restart: always
 
 networks:
-  revproxy_net:
+  edge_to_vouch:
     driver: bridge
+
+  grafana_to_prometheus:
+    driver: bridge
+
+  prometheus_to_cadvisor:
+    driver: bridge
+
+  edge_to_grafana:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
