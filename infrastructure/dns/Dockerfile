@@ -7,7 +7,7 @@ WORKDIR /app
 RUN pip install --no-cache-dir requests
 
 # Setup 5min cron job
-RUN echo "* * * * * python /app/main.py > /app/logs/cron.log 2>&1" >> /etc/crontabs/root
+RUN echo "*/5 * * * * python /app/main.py > /app/logs/cron.log 2>&1" >> /etc/crontabs/root
 
 # copy scripts
 COPY main.py .
