@@ -40,6 +40,8 @@ services:
   tgbot:
     build:
       dockerfile: services/tgbot/Dockerfile
+    volumes:
+      - ./services/tgbot/src:/app/src:ro
 
     restart: always
     networks:
