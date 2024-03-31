@@ -1,49 +1,95 @@
 import asyncio
 import logging
+from typing import Annotated
 
-from quart import Quart, jsonify, request
+import uvicorn
+from fastapi import Depends, FastAPI, HTTPException, Response
+from fastapi.security import OAuth2PasswordBearer
+from src.models import io as mio
+from starlette import status
 
 from common.config import PathRegistry as PR
+from common.config import ServiceRegistry as SR
 
+from .access_control import AccessControlManager
 from .exceptions import TaskNotFoundError
 
-app = Quart(__name__)
-message_queue: asyncio.Queue = None
+app = FastAPI()
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 
-async def run_flask_app(shared_queue: asyncio.Queue):
-    global message_queue
-    message_queue = shared_queue
-    try:
-        path_cert = PR.get_config_file("secrets/certificate.pem")
-        path_key = PR.get_config_file("secrets/key.pem")
-        await app.run_task(
-            host="0.0.0.0", debug=False, certfile=path_cert, keyfile=path_key
+async def run_fastapi_app(
+    shared_queue: asyncio.Queue, ac_manager: AccessControlManager
+):
+    config = uvicorn.Config(
+        app=app,
+        host="0.0.0.0",
+        port=SR.SERVICE_TGBOT_PORT,
+        loop="asyncio",
+        log_level="info",
+        ssl_keyfile=PR.get_config_file("secrets/key.pem"),
+        ssl_certfile=PR.get_config_file("secrets/certificate.pem"),
+        reload=True,
+    )
+    server = uvicorn.Server(config)
+    app.state.message_queue = shared_queue
+    app.state.ac_manager = ac_manager
+    await server.serve()
+
+
+def get_access_control_manager() -> AccessControlManager:
+    return app.state.ac_manager
+
+
+def token_is_registered(ac_manager: AccessControlManager, token: str):
+    return ac_manager.is_token_registered(token)
+
+
+def get_current_token(token: Annotated[str, Depends(oauth2_scheme)]):
+    logging.info(f"Received token: {token}")
+    ac_manager = get_access_control_manager()
+    if not token_is_registered(ac_manager, token):
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or unregistered token",
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    except asyncio.CancelledError:
-        logging.info("api server shut down")
+    return token  # Token is valid and registered, return it for potential further use
 
 
-@app.route("/enqueue_command", methods=["POST"])
-async def enqueue_command():
-    command_message = await request.get_json()
-    # for response data
+@app.get("/ping")
+async def ping():
+    return {"status": "ok"}
+
+
+@app.post("/enqueue_task")
+async def enqueue_command(
+    task: mio.TgbotTask,
+    fastpi_response: Response,
+    token: Annotated[str, Depends(get_current_token)],
+) -> mio.ApiResponse:
+    # prepare response data
     future = asyncio.Future()
-
-    await message_queue.put((command_message, future))
-
+    logging.info("rogfhriughreuighieurhgiuerhg")
+    # send message to the queue
+    msg_in_queue = mio.MessageInQueue(task=task, api_token=token)
+    await msg_in_queue.put((msg_in_queue, future))
+    # wait for the response
     try:
-        response = await asyncio.wait_for(future, timeout=5)
-
-    # timeout while waiting for response
+        task_response: mio.TaskResponse = await asyncio.wait_for(
+            future, timeout=0.00001
+        )
+        response = mio.ApiResponse(
+            status="success", task=task_response, status_code=200
+        )
     except asyncio.TimeoutError:
-        return jsonify({"status": "error", "message": "Command timeout"}), 500
-
+        response = mio.ApiResponse(
+            status="error", error="Command timeout", status_code=500
+        )
     except TaskNotFoundError as e:
-        return jsonify({"status": "error", "message": str(e)}), 404
-
-    # handle any other exception raised by the queue processing agent
+        response = mio.ApiResponse(status="error", error=str(e), status_code=404)
     except Exception as e:
-        return jsonify({"status": "error", "message": str(e)}), 500
+        response = mio.ApiResponse(status="error", error=str(e), status_code=500)
 
-    return jsonify(response)
+    fastpi_response.status_code = response.status_code
+    return response

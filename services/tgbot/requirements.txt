@@ -1,4 +1,7 @@
-Quart==0.19.4
+#Quart==0.19.4
+fastapi==0.110.0
+uvicorn==0.29.0
+python-dotenv==1.0.1
 PyYAML==6.0.1
 cryptography==42.0.5
 python-telegram-bot==21.0.1

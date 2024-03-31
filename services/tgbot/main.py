@@ -1,22 +1,24 @@
-
-
 import asyncio
 import signal
-import threading
 
+from common.config import PathRegistry as PR
 from common.config import setup
 
 setup(__file__)
-from src.rest_api import run_flask_app
-from src.bot import run_bot
-
+from src.access_control import AccessControlManager  # noqa E402
+from src.bot import run_bot  # noqa E402
+from src.rest_api import run_fastapi_app  # noqa E402
 
 message_queue = asyncio.Queue()
+ac_manager = AccessControlManager(
+    path_permissions=PR.get_config_file("permissions.yaml"),
+    path_dotenv=PR.PATH_ROOT / ".env",
+)
 
 
 async def main():
-    # Starting both the Flask (Quart) app and Telegram bot as tasks
-    server_task = asyncio.create_task(run_flask_app(message_queue))
+    # Starting both the FastAPI app and Telegram bot as tasks
+    server_task = asyncio.create_task(run_fastapi_app(message_queue, ac_manager))
     bot_task = asyncio.create_task(run_bot(message_queue))
 
     # Wait for the tasks to finish (they won't unless cancelled)
@@ -41,10 +43,12 @@ async def async_main():
 
     # Register signal handlers to ensure graceful shutdown
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(graceful_shutdown(sig, tasks)))
+        loop.add_signal_handler(
+            sig, lambda: asyncio.create_task(graceful_shutdown(sig, tasks))  # noqa B023
+        )
 
     await main()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(async_main())
