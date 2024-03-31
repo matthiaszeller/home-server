@@ -16,7 +16,7 @@ class MessageInQueue(BaseModel):
 
 
 class TaskResponse(BaseModel):
-    message: str
+    message: str | None = None
     data: dict[str, Any] = {}
 
 
@@ -24,4 +24,4 @@ class ApiResponse(BaseModel):
     status: str
     status_code: int
     error: str | None = None
-    task: TaskResponse
+    task: TaskResponse | None = None

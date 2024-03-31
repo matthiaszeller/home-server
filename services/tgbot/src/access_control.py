@@ -6,8 +6,19 @@ import yaml
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, RootModel
 
-APIRoles = RootModel[dict[str, list[str]]]
-TGRoles = RootModel[dict[str, list[str]]]
+
+class BaseRole(RootModel):
+    root: dict[str, list[str]]
+
+    def __getitem__(self, key: str) -> list[str]:
+        return self.root[key]
+
+    def get(self, key: str, default=None) -> list[str]:
+        return self.root.get(key, default)
+
+
+APIRoles = BaseRole
+TGRoles = BaseRole
 
 
 class PermissionsConfig(BaseModel):
@@ -27,6 +38,10 @@ class AccessControlManager:
         self._service_users: dict[str, str] = self._load_service_users()
         self._telegram_users: dict[str, str] = self._load_telegram_users()
         self.logger.info("Access Control Manager initialized successfully.")
+        self.logger.info(f"API roles: {self._permissions.api_roles}")
+        self.logger.info(f"Telegram roles: {self._permissions.tg_roles}")
+        self.logger.info(f"Service users: {self._service_users.keys()}")
+        self.logger.info(f"Telegram users: {self._telegram_users.keys()}")
 
     @classmethod
     def _load_permissions(cls, file_path: str) -> PermissionsConfig:
@@ -45,7 +60,7 @@ class AccessControlManager:
     def _load_service_users(cls) -> dict[str, str]:
         """Loads service user mappings from environment variables."""
         cls.logger.debug("Loading service user mappings...")
-        return {k: v for k, v in os.environ.items() if k.startswith("API_KEY_FOR_")}
+        return {v: k for k, v in os.environ.items() if k.startswith("API_KEY_FOR_")}
 
     @classmethod
     def _load_telegram_users(cls) -> dict[str, str]:
@@ -56,7 +71,7 @@ class AccessControlManager:
     def is_token_registered(self, api_key: str) -> bool:
         """Checks if an API key is registered, ignoring specific task permissions."""
         if api_key in self._service_users:
-            self.logger.info(f"API key is registered: {api_key}")
+            self.logger.info(f"API key is registered: {self._service_users[api_key]}")
             return True
         self.logger.warning(f"API key not registered: {api_key}")
         return False
@@ -65,7 +80,7 @@ class AccessControlManager:
         """Checks if a service user identified by an API key has access to the specified task."""
         role = self._service_users.get(api_key)
         if role:
-            allowed_endpoints = self._permissions.api_roles.__root__.get(role, [])
+            allowed_endpoints = self._permissions.api_roles.get(role, [])
             access_granted = task in allowed_endpoints or "*" in allowed_endpoints
             self.logger.info(
                 f"API access {'granted' if access_granted else 'denied'} for key: {api_key}, task: {task}"
@@ -78,7 +93,7 @@ class AccessControlManager:
         """Checks if a Telegram user has access to the specified command."""
         role = self._telegram_users.get(f"TELEGRAM_USER_{user_id}")
         if role:
-            allowed_commands = self._permissions.tg_roles.__root__.get(role, [])
+            allowed_commands = self._permissions.tg_roles.get(role, [])
             access_granted = command in allowed_commands or "*" in allowed_commands
             self.logger.info(
                 f"Telegram command access {'granted' if access_granted else 'denied'} "

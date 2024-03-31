@@ -1,5 +1,4 @@
 import asyncio
-import logging
 from typing import Annotated
 
 import uvicorn
@@ -12,7 +11,7 @@ from common.config import PathRegistry as PR
 from common.config import ServiceRegistry as SR
 
 from .access_control import AccessControlManager
-from .exceptions import TaskNotFoundError
+from .exceptions import TaskNotFoundError, UnauthorizedAccessError
 
 app = FastAPI()
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
@@ -41,12 +40,15 @@ def get_access_control_manager() -> AccessControlManager:
     return app.state.ac_manager
 
 
+def get_message_queue() -> asyncio.Queue:
+    return app.state.message_queue
+
+
 def token_is_registered(ac_manager: AccessControlManager, token: str):
     return ac_manager.is_token_registered(token)
 
 
 def get_current_token(token: Annotated[str, Depends(oauth2_scheme)]):
-    logging.info(f"Received token: {token}")
     ac_manager = get_access_control_manager()
     if not token_is_registered(ac_manager, token):
         raise HTTPException(
@@ -67,18 +69,16 @@ async def enqueue_command(
     task: mio.TgbotTask,
     fastpi_response: Response,
     token: Annotated[str, Depends(get_current_token)],
+    message_queue: Annotated[asyncio.Queue, Depends(get_message_queue)],
 ) -> mio.ApiResponse:
     # prepare response data
     future = asyncio.Future()
-    logging.info("rogfhriughreuighieurhgiuerhg")
     # send message to the queue
     msg_in_queue = mio.MessageInQueue(task=task, api_token=token)
-    await msg_in_queue.put((msg_in_queue, future))
+    await message_queue.put((msg_in_queue, future))
     # wait for the response
     try:
-        task_response: mio.TaskResponse = await asyncio.wait_for(
-            future, timeout=0.00001
-        )
+        task_response: mio.TaskResponse = await asyncio.wait_for(future, timeout=5)
         response = mio.ApiResponse(
             status="success", task=task_response, status_code=200
         )
@@ -88,6 +88,8 @@ async def enqueue_command(
         )
     except TaskNotFoundError as e:
         response = mio.ApiResponse(status="error", error=str(e), status_code=404)
+    except UnauthorizedAccessError as e:
+        response = mio.ApiResponse(status="error", error=str(e), status_code=403)
     except Exception as e:
         response = mio.ApiResponse(status="error", error=str(e), status_code=500)
 

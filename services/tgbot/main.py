@@ -19,7 +19,7 @@ ac_manager = AccessControlManager(
 async def main():
     # Starting both the FastAPI app and Telegram bot as tasks
     server_task = asyncio.create_task(run_fastapi_app(message_queue, ac_manager))
-    bot_task = asyncio.create_task(run_bot(message_queue))
+    bot_task = asyncio.create_task(run_bot(message_queue, ac_manager))
 
     # Wait for the tasks to finish (they won't unless cancelled)
     await asyncio.wait([server_task, bot_task], return_when=asyncio.FIRST_COMPLETED)
