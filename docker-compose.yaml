@@ -41,6 +41,10 @@ services:
     build:
       dockerfile: services/tgbot/Dockerfile
     volumes:
+      - ./services/tgbot/.env:/app/.env:ro
+      - ./services/tgbot/config:/app/config:ro
+      - ./common/config:/app/common/config:ro
+      # for dev
       - ./services/tgbot/src:/app/src:ro
 
     restart: always

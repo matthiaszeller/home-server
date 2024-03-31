@@ -23,8 +23,9 @@ class PathRegistry:
     """Utility class for managing and accessing filesystem paths within the project."""
 
     PATH_ROOT = Path()
-    PATH_CONFIG = "config"
-    PATH_LOGS = "logs"
+    PATH_CONFIG = Path("config")
+    PATH_COMMON_CONFIG = Path("common/config")
+    PATH_LOGS = Path("logs")
 
     @classmethod
     def setup(cls, path_call_file: str, service: bool = True):
@@ -45,19 +46,16 @@ class PathRegistry:
     @classmethod
     def get_config_file(cls, fname: str) -> Path:
         service_config = cls.PATH_CONFIG / fname
-        if os.environ.get("LOCAL_SERVICE_NAME") is not None:
-            local_config = cls.PATH_ROOT.parent.parent / "config" / fname
-            if local_config.exists():
-                return local_config
+        common_config = cls.PATH_COMMON_CONFIG / fname
+        if common_config.exists():
+            return common_config
 
         return service_config
 
     @classmethod
     def glob_config(cls, glob: str) -> list[Path]:
         files = list(cls.PATH_CONFIG.glob(glob))
-        if os.environ.get("LOCAL_SERVICE_NAME") is not None:
-            files.extend(cls.PATH_ROOT.parent.parent.joinpath("config").glob(glob))
-
+        files.extend(cls.PATH_COMMON_CONFIG.glob(glob))
         return files
 
 

@@ -8,7 +8,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY ./services/dummy/ .
 COPY ./common ./common
-COPY ./config/* ./config
 
 
 ENTRYPOINT ["tail", "-f", "/dev/null"]
