@@ -21,6 +21,8 @@ class BaseTelegramBot:
     PATH_ADMIN = PR.get_config_file("secrets/admin_user.txt")
     _COMMANDS: dict[str, Callable] = {}
 
+    logger = logging.getLogger("tgbot")
+
     def __init__(self):
         self.token = utils.read_text_file(self.PATH_TOKEN)
         self.app = ApplicationBuilder().token(self.token).build()
@@ -28,17 +30,21 @@ class BaseTelegramBot:
 
     @classmethod
     def __init_subclass__(cls, **kwargs):
-        print(f"Initializing subclass: {cls.__name__}")
         super().__init_subclass__(**kwargs)
         cls.__register_commands()
 
     @classmethod
     def __register_commands(cls):
+        def process_command_name(name):
+            return name.replace("command_", "")
+
         # get all methods from the class
         cls._COMMANDS = {
-            name: getattr(cls, name) for name in dir(cls) if name.startswith("command_")
+            process_command_name(name): getattr(cls, name)
+            for name in dir(cls)
+            if name.startswith("command_")
         }
-        logging.debug(f"Registered commands: {cls._COMMANDS}")
+        cls.logger.info(f"Registered commands: {', '.join(cls._COMMANDS.keys())}")
 
     async def command_start(self, update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
@@ -53,22 +59,22 @@ class BaseTelegramBot:
         await self.app.bot.send_message(chat_id=self.admin_user, text=text)
 
     async def process_queue_messages(self, message_queue: asyncio.Queue):
-        logging.debug("starting processing message queue")
+        self.logger.debug("starting processing message queue")
         while True:
-            logging.info("waiting for queue msg")
+            self.logger.debug("waiting for queue msg")
             future: asyncio.Future
             command_message: dict
             command_message, future = await message_queue.get()
-            logging.info("got queue msg")
+            self.logger.info("got queue msg")
             try:
                 command = command_message["command"]
                 data = command_message["data"]
-                logging.debug(f"Got command from queue: {command}")
+                self.logger.debug(f"Got command from queue: {command}")
 
                 # Handle the command
                 command = self._COMMANDS.get(command)
                 if command is None:
-                    logging.error(f"Command not found: {command}")
+                    self.logger.error(f"Command not found: {command}")
                     future.set_exception(
                         CommandNotFoundError(f"Command not found: {command}")
                     )
@@ -78,22 +84,22 @@ class BaseTelegramBot:
                     result = await command(**data)
                     future.set_result({"status": "success", "result": result})
                 except Exception as e:
-                    logging.error(f"Error processing command: {e}")
+                    self.logger.error(f"Error processing command: {e}")
                     future.set_exception(e)
 
             except Exception as e:
-                logging.error(f"Error processing message: {e}")
+                self.logger.error(f"Error processing message: {e}")
             finally:
                 message_queue.task_done()
 
     async def start(self):
-        logging.info("starting telegram bot")
+        self.logger.info("starting telegram bot")
         await self.app.initialize()
         await self.app.start()
         await self.app.updater.start_polling()
 
     async def stop(self):
-        logging.info("shutting down telegram bot")
+        self.logger.info("shutting down telegram bot")
         await self.app.updater.stop()
         await self.app.stop()
         await self.app.shutdown()
