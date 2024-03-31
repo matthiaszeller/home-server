@@ -5,6 +5,8 @@ from quart import Quart, jsonify, request
 
 from common.config import PathRegistry as PR
 
+from .exceptions import CommandNotFoundError
+
 app = Quart(__name__)
 message_queue: asyncio.Queue = None
 
@@ -32,10 +34,15 @@ async def enqueue_command():
 
     try:
         response = await asyncio.wait_for(future, timeout=5)
+
     # timeout while waiting for response
     except asyncio.TimeoutError:
         return jsonify({"status": "error", "message": "Command timeout"}), 500
-    # handle any exception raised by the queue processing agent
+
+    except CommandNotFoundError as e:
+        return jsonify({"status": "error", "message": str(e)}), 404
+
+    # handle any other exception raised by the queue processing agent
     except Exception as e:
         return jsonify({"status": "error", "message": str(e)}), 500
 

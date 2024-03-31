@@ -12,8 +12,10 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from common import utils
 from common.config import PathRegistry as PR
 
+from .exceptions import CommandNotFoundError
 
-class TelegramBot:
+
+class BaseTelegramBot:
 
     PATH_TOKEN = PR.get_config_file("secrets/bot_api.txt")
     PATH_ADMIN = PR.get_config_file("secrets/admin_user.txt")
@@ -26,6 +28,7 @@ class TelegramBot:
 
     @classmethod
     def __init_subclass__(cls, **kwargs):
+        print(f"Initializing subclass: {cls.__name__}")
         super().__init_subclass__(**kwargs)
         cls.__register_commands()
 
@@ -33,10 +36,9 @@ class TelegramBot:
     def __register_commands(cls):
         # get all methods from the class
         cls._COMMANDS = {
-            name: method
-            for name, method in dir(cls)
-            if callable(method) and name.startswith("command_")
+            name: getattr(cls, name) for name in dir(cls) if name.startswith("command_")
         }
+        logging.debug(f"Registered commands: {cls._COMMANDS}")
 
     async def command_start(self, update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
@@ -67,7 +69,9 @@ class TelegramBot:
                 command = self._COMMANDS.get(command)
                 if command is None:
                     logging.error(f"Command not found: {command}")
-                    future.set_exception(ValueError(f"Command not found: {command}"))
+                    future.set_exception(
+                        CommandNotFoundError(f"Command not found: {command}")
+                    )
                     continue
 
                 try:
@@ -109,6 +113,10 @@ class TelegramBot:
         # Add some logic that keeps the event loop running until you want to shutdown
         # Stop the other asyncio frameworks here
         await self.stop()
+
+
+class TelegramBot(BaseTelegramBot):
+    pass
 
 
 async def run_bot(message_queue: asyncio.Queue):
