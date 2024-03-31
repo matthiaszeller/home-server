@@ -61,7 +61,10 @@ class ServiceAPIKeyManager:
 
     def _get_path_service_api_key(self, service_name: str) -> Path:
         return (
-            self._get_path_service(service_name) / "config" / "secrets" / "api_key.txt"
+            self._get_path_service(service_name)
+            / "config"
+            / "secrets"
+            / "api_token.txt"
         )
 
     def _create_api_key(self, service_name: str):

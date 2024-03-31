@@ -1,19 +1,13 @@
 import logging
 import os
+from pathlib import Path
 
 import yaml
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, RootModel
 
-
-class APIRoles(BaseModel):
-    # Dynamic role names with their permissions
-    __root__: dict[str, list[str]] = Field(default_factory=dict)
-
-
-class TGRoles(BaseModel):
-    # Dynamic role names with their permissions
-    __root__: dict[str, list[str]] = Field(default_factory=dict)
+APIRoles = RootModel[dict[str, list[str]]]
+TGRoles = RootModel[dict[str, list[str]]]
 
 
 class PermissionsConfig(BaseModel):
@@ -25,12 +19,10 @@ class AccessControlManager:
 
     logger = logging.getLogger("AccessControlManager")
 
-    def __init__(self, permissions_config_path: str, secrets_env_path: str) -> None:
+    def __init__(self, path_permissions: str | Path, path_dotenv: str | Path) -> None:
         self.logger.debug("Initializing Access Control Manager...")
-        load_dotenv(secrets_env_path)
-        self._permissions: PermissionsConfig = self._load_permissions(
-            permissions_config_path
-        )
+        load_dotenv(path_dotenv)
+        self._permissions: PermissionsConfig = self._load_permissions(path_permissions)
         # Maps are now directly loaded from environment variables, leveraging Pydantic's parsing
         self._service_users: dict[str, str] = self._load_service_users()
         self._telegram_users: dict[str, str] = self._load_telegram_users()
@@ -60,6 +52,14 @@ class AccessControlManager:
         """Loads Telegram user mappings from environment variables."""
         cls.logger.info("Loading Telegram user mappings...")
         return {k: v for k, v in os.environ.items() if k.startswith("TELEGRAM_USER_")}
+
+    def is_token_registered(self, api_key: str) -> bool:
+        """Checks if an API key is registered, ignoring specific task permissions."""
+        if api_key in self._service_users:
+            self.logger.info(f"API key is registered: {api_key}")
+            return True
+        self.logger.warning(f"API key not registered: {api_key}")
+        return False
 
     def check_api_access(self, api_key: str, task: str) -> bool:
         """Checks if a service user identified by an API key has access to the specified task."""
