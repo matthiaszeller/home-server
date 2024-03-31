@@ -5,8 +5,10 @@ https://github.com/python-telegram-bot/python-telegram-bot/wiki/Frequently-reque
 import asyncio
 import logging
 import queue
+from functools import wraps
 from typing import Callable
 
+from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 
 from common import utils
@@ -51,7 +53,7 @@ class BaseTelegramBot:
         }
         cls.logger.info(f"Registered tasks: {', '.join(cls._TASKS.keys())}")
 
-    async def command_start(self, update, context: ContextTypes.DEFAULT_TYPE):
+    async def command_start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
             chat_id=update.effective_chat.id, text="Hello! I'm your bot."
         )
@@ -127,10 +129,42 @@ class BaseTelegramBot:
         await self.app.stop()
         await self.app.shutdown()
 
+    def _command_wrapper(self, func):
+        """A decorator to wrap command methods for authorization and automatic command name inference."""
+        command_name = func.__name__[len("command_") :]  # noqa E203
+
+        @wraps(func)
+        async def wrapper(
+            update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs
+        ):
+            logging.info(f"Command triggered: {command_name}")
+            user_id = update.effective_user.id
+
+            if self.ac_manager.check_tg_command_access(str(user_id), command_name):
+                return await func(update, context, *args, **kwargs)
+            else:
+                logging.warning(
+                    f"Unauthorized access attempted from {update.effective_user}"
+                )
+                await context.bot.send_message(
+                    chat_id=update.effective_chat.id,
+                    text="You are not authorized to use this command.",
+                )
+
+        return wrapper
+
+    def _register_command_handlers(self):
+        """Registers all bot commands based on methods named with the 'command_' prefix."""
+        for attr_name in dir(self):
+            if callable(getattr(self, attr_name)) and attr_name.startswith("command_"):
+                method = getattr(self, attr_name)
+                wrapped_method = self._command_wrapper(method)
+                command_name = attr_name[len("command_") :]  # noqa E203
+                self.logger.info(f"Registering command: {command_name}")
+                self.app.add_handler(CommandHandler(command_name, wrapped_method))
+
     async def run(self, message_queue: queue.Queue):
-        # Add handlers
-        start_handler = CommandHandler("start", self.start)
-        self.app.add_handler(start_handler)
+        self._register_command_handlers()
 
         # Add error handler
         self.app.add_error_handler(self.error_handler)
