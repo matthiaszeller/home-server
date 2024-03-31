@@ -78,6 +78,7 @@ services:
     networks:
       - grafana_to_prometheus
       - edge_to_grafana
+    restart: always
 
   # Container ingesting and storing cadvisor data
   prometheus:
