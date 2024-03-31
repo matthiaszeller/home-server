@@ -26,6 +26,9 @@ repos:
       - id: flake8
         additional_dependencies: ['flake8-bugbear', 'flake8-comprehensions']
         # Lints Python code for errors, with additional checks from plugins.
+        # modify max line length to 110
+        args: ['--max-line-length=110']
+
 
 #  - repo: https://github.com/prettier/prettier
 #    rev: '3.2.5'  # Use the latest version
