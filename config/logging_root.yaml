@@ -12,6 +12,10 @@ handlers:
     class: logging.StreamHandler
     formatter: standard
     level: INFO
+  console_debug:
+    class: logging.StreamHandler
+    formatter: standard
+    level: DEBUG
   file:
     class: logging.FileHandler
     filename: logs/root.log

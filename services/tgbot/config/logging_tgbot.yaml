@@ -9,3 +9,7 @@ loggers:
   telegram:
     level: INFO
 
+  tgbot:
+    handlers: [console_debug, file]
+    level: DEBUG
+    propagate: no
