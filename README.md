@@ -35,6 +35,11 @@ The Home Server setup adopts a refined two-tier Docker stack architecture with d
 
 ### Configuration Steps
 
+0. Make sure rootless docker runs on boot: 
+```bash
+sudo loginctl enable-linger <user>
+```
+
 1. **Nginx A SSL Configuration**: Configure Nginx A with SSL certificates obtained from a recognized CA to secure communications with end users.
 
 2. **Setting up mTLS between Nginx A and Nginx B**:
