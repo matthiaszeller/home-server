@@ -65,6 +65,31 @@ Definitions:
 - **Command**: A message sent by a user to the bot, containing a specific instruction or request. See telegram bot commands (https://core.telegram.org/bots#commands).
 - **Task**: an API-requested operation that the bot should perform, such as sending a message to a user or updating a chat.
 
+## Security
+
+### Security Overview
+
+1. **For API Services**:
+    * **Authentication**: services calling the API has a unique token to authenticate themselves.
+    * **Authorization**: once a service is authenticated, it can only access the resources it is authorized to access.
+2. **For Telegram Users**:
+    * **User Identification**: Telegram users are identified by their unique chat ID provided by the Telegram API.
+      There's no need for additional authentication as their telegram session handles it.
+    * **Command Permissions**: Similar to services, we map Telegram commands to roles or directly to user IDs for authorization.
+
+### Access Control
+
+* **Service-based API Access**:
+   * Services are authenticated using unique API keys.
+   * Each service is assigned a role that determines its permissions, specifically which API endpoints it can access.
+   * Permissions are defined in a permissions.yaml file, mapping roles to sets of accessible API endpoints.
+   * API keys and their corresponding roles are securely stored and managed in an .env file, separate from the application codebase to enhance security.
+
+* **Telegram User Command Access**:
+  * Telegram users are identified by their Telegram user IDs.
+  * Similar to services, users are assigned roles that specify which Telegram commands they can execute.
+  * Roles and command permissions for Telegram users are also defined in the permissions.yaml file.
+  * User roles are mapped in the .env file, correlating Telegram user IDs with their respective roles.
 
 
 ## TODOs
