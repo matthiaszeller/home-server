@@ -35,13 +35,13 @@ class AccessControlManager:
         load_dotenv(path_dotenv)
         self._permissions: PermissionsConfig = self._load_permissions(path_permissions)
         # Maps are now directly loaded from environment variables, leveraging Pydantic's parsing
-        self._service_users: dict[str, str] = self._load_service_users()
+        self._service_users: dict[str, list[str]] = self._load_service_users()
         self._telegram_users: dict[str, str] = self._load_telegram_users()
         self.logger.info("Access Control Manager initialized successfully.")
         self.logger.info(f"API roles: {self._permissions.api_roles}")
         self.logger.info(f"Telegram roles: {self._permissions.tg_roles}")
-        self.logger.info(f"Service users: {self._service_users.keys()}")
-        self.logger.info(f"Telegram users: {self._telegram_users.keys()}")
+        self.logger.info(f"Service users: {self._service_users.values()}")
+        self.logger.info(f"Telegram users: {self._telegram_users.values()}")
 
     @classmethod
     def _load_permissions(cls, file_path: str) -> PermissionsConfig:
@@ -57,10 +57,15 @@ class AccessControlManager:
             raise Exception(f"Error parsing YAML: {e}")
 
     @classmethod
-    def _load_service_users(cls) -> dict[str, str]:
-        """Loads service user mappings from environment variables."""
+    def _load_service_users(cls) -> dict[str, list[str]]:
+        """Loads service user mappings from environment variables, parsing API keys and roles."""
         cls.logger.debug("Loading service user mappings...")
-        return {v: k for k, v in os.environ.items() if k.startswith("API_KEY_FOR_")}
+        service_users = {}
+        for key, value in os.environ.items():
+            if key.startswith("API_KEY_FOR_"):
+                api_key, *roles = value.split(",")
+                service_users[api_key] = roles
+        return service_users
 
     @classmethod
     def _load_telegram_users(cls) -> dict[str, str]:
@@ -77,16 +82,25 @@ class AccessControlManager:
         return False
 
     def check_api_access(self, api_key: str, task: str) -> bool:
-        """Checks if a service user identified by an API key has access to the specified task."""
-        role = self._service_users.get(api_key)
-        if role:
-            allowed_endpoints = self._permissions.api_roles.get(role, [])
-            access_granted = task in allowed_endpoints or "*" in allowed_endpoints
-            self.logger.info(
-                f"API access {'granted' if access_granted else 'denied'} for key: {api_key}, task: {task}"
+        """Checks if a service user identified by an API key has access to the specified task,
+        accounting for multiple roles."""
+        roles = self._service_users.get(api_key)
+        if not roles:
+            self.logger.warning(
+                f"API key not found or has no roles assigned: {api_key}"
             )
-            return access_granted
-        self.logger.warning(f"API key not found or has no role assigned: {api_key}")
+            return False
+
+        # Iterate over each role assigned to the API key and check if any role grants access to the task
+        for role in roles:
+            allowed_endpoints = self._permissions.api_roles.get(role, [])
+            if task in allowed_endpoints or "*" in allowed_endpoints:
+                self.logger.info(
+                    f"API access granted for key: {api_key}, task: {task}, role: {role}"
+                )
+                return True
+
+        self.logger.warning(f"API access denied for key: {api_key}, task: {task}")
         return False
 
     def check_tg_command_access(self, user_id: str, command: str) -> bool:

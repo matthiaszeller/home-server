@@ -3,13 +3,9 @@
 api_roles:
 
   # Define roles for API access
-  data_service:
+  dummy_service:
     # List of tasks this role can access
-    - "/api/data"
-    - "/api/query"
-  analytics_service:
-    - "/api/analytics"
-    - "/api/stats"
+    - "send_message_admin"
 
   admin_role:
     # Admin role has access to all endpoints
@@ -21,6 +17,7 @@ tg_roles:
 
   standard_user:
     - "/start"
+    - "/help"
 
   admin_user:
     - "*"
@@ -34,8 +31,8 @@ tg_roles:
 #   "987654321": "premium_user"
 # --- would be encoded in the .env file as:
 ## Service Users (API keys to roles)
-#API_KEY_FOR_DATA_SERVICE=data_service
-#API_KEY_FOR_ANALYTICS_SERVICE=analytics_service
+#API_KEY_FOR_DATA_SERVICE=<actual_key>,role_1,role_2
+#API_KEY_FOR_ANALYTICS_SERVICE=<actual_key>,role_2,role_3
 #
 ## Telegram Users (User IDs to roles)
 #TELEGRAM_USER_123456789=basic_user
