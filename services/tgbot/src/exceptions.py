@@ -1,2 +1,2 @@
-class CommandNotFoundError(ValueError):
+class TaskNotFoundError(ValueError):
     pass

@@ -26,7 +26,10 @@ allowing for concurrent execution of the bot and the API server within the same 
 The interaction between these components is facilitated through bi-directional communication using asyncio Queues,
 enabling both command execution and response handling between the bot and the server without blocking the event loop.
 
-### Telegram Bot
+
+### Components
+
+#### Telegram Bot
 
 The bot component is built using the `python-telegram-bot` library, adapted for asyncio compatibility.
 It listens for user commands, processes incoming messages, and can send responses based on commands received through
@@ -34,14 +37,14 @@ the API server. The bot's main function `TelegramBot.run`, manages the addition 
 and message processing, and responding to commands via an asyncio Queue,
 ensuring seamless operation within an asyncio-driven environment.
 
-### API Server
+#### API Server
 
 The API server is developed with Quart, an asyncio-compatible microframework similar to Flask.
 It exposes an endpoint `/enqueue_command` that accepts POST requests.
 These requests are intended to carry commands to be enqueued into the shared asyncio Queue,
 allowing for asynchronous communication between the external world (e.g., a web frontend) and the bot component.
 
-### Message Queue
+#### Message Queue
 
 At the heart of the interaction between the bot and the API server lies an asyncio Queue (message_queue).
 This queue enables the decoupling of the bot's operations from the API server,
@@ -49,10 +52,20 @@ allowing for asynchronous message passing and command execution.
 The API server enqueues commands received from HTTP requests, and the bot dequeues these commands for processing,
 facilitating a reactive system that can respond to external triggers without interrupting its core loop.
 
-### Response Handling Mechanism
+#### Response Handling Mechanism
 
 Upon enqueuing a command, the API server packs the command data with a `asyncio.Future` object,
 who is waited to get the response from the bot.
+
+### Interaction
+
+#### Commands and Tasks
+
+Definitions:
+- **Command**: A message sent by a user to the bot, containing a specific instruction or request. See telegram bot commands (https://core.telegram.org/bots#commands).
+- **Task**: an API-requested operation that the bot should perform, such as sending a message to a user or updating a chat.
+
+
 
 ## TODOs
 

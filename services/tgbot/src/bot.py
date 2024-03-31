@@ -12,14 +12,14 @@ from telegram.ext import ApplicationBuilder, CommandHandler, ContextTypes
 from common import utils
 from common.config import PathRegistry as PR
 
-from .exceptions import CommandNotFoundError
+from .exceptions import TaskNotFoundError
 
 
 class BaseTelegramBot:
 
     PATH_TOKEN = PR.get_config_file("secrets/bot_api.txt")
     PATH_ADMIN = PR.get_config_file("secrets/admin_user.txt")
-    _COMMANDS: dict[str, Callable] = {}
+    _TASKS: dict[str, Callable] = {}
 
     logger = logging.getLogger("tgbot")
 
@@ -31,20 +31,20 @@ class BaseTelegramBot:
     @classmethod
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
-        cls.__register_commands()
+        cls.__register_tasks()
 
     @classmethod
-    def __register_commands(cls):
-        def process_command_name(name):
-            return name.replace("command_", "")
+    def __register_tasks(cls):
+        def process_task_name(name):
+            return name.replace("task_", "")
 
         # get all methods from the class
-        cls._COMMANDS = {
-            process_command_name(name): getattr(cls, name)
+        cls._TASKS = {
+            process_task_name(name): getattr(cls, name)
             for name in dir(cls)
-            if name.startswith("command_")
+            if name.startswith("task_")
         }
-        cls.logger.info(f"Registered commands: {', '.join(cls._COMMANDS.keys())}")
+        cls.logger.info(f"Registered tasks: {', '.join(cls._TASKS.keys())}")
 
     async def command_start(self, update, context: ContextTypes.DEFAULT_TYPE):
         await context.bot.send_message(
@@ -55,7 +55,7 @@ class BaseTelegramBot:
         # Log Errors caused by Updates or notify users of error, etc.
         print(f"Error occurred: {context.error}")
 
-    async def command_send_message(self, chat_id: int, text: str):
+    async def task_send_message_admin(self, text: str):
         await self.app.bot.send_message(chat_id=self.admin_user, text=text)
 
     async def process_queue_messages(self, message_queue: asyncio.Queue):
@@ -67,21 +67,21 @@ class BaseTelegramBot:
             command_message, future = await message_queue.get()
             self.logger.info("got queue msg")
             try:
-                command = command_message["command"]
+                command = command_message["task"]
                 data = command_message["data"]
-                self.logger.debug(f"Got command from queue: {command}")
+                self.logger.debug(f"Got task from queue: {command}")
 
                 # Handle the command
-                command = self._COMMANDS.get(command)
+                command = self._TASKS.get(command)
                 if command is None:
-                    self.logger.error(f"Command not found: {command}")
+                    self.logger.error(f"Task not found: {command}")
                     future.set_exception(
-                        CommandNotFoundError(f"Command not found: {command}")
+                        TaskNotFoundError(f"Task not found: {command}")
                     )
                     continue
 
                 try:
-                    result = await command(**data)
+                    result = await command(self, **data)
                     future.set_result({"status": "success", "result": result})
                 except Exception as e:
                     self.logger.error(f"Error processing command: {e}")
