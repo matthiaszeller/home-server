@@ -24,6 +24,7 @@ class BaseTelegramBot:
     PATH_TOKEN = PR.get_config_file("secrets/bot_api.txt")
     PATH_ADMIN = PR.get_config_file("secrets/admin_user.txt")
     _TASKS: dict[str, Callable] = {}
+    _COMMANDS: dict[str, Callable] = {}
 
     logger = logging.getLogger("tgbot")
 
@@ -37,6 +38,21 @@ class BaseTelegramBot:
     def __init_subclass__(cls, **kwargs):
         super().__init_subclass__(**kwargs)
         cls.__register_tasks()
+        cls.__register_commands()
+
+    @classmethod
+    def __register_commands(cls):
+        """Register all command methods from the subclass."""
+
+        def process_command_name(name):
+            return name.replace("command_", "")
+
+        cls._COMMANDS = {
+            process_command_name(name): getattr(cls, name)
+            for name in dir(cls)
+            if name.startswith("command_")
+        }
+        cls.logger.info(f"Registered commands: {', '.join(cls._COMMANDS.keys())}")
 
     @classmethod
     def __register_tasks(cls):
@@ -57,6 +73,19 @@ class BaseTelegramBot:
         await context.bot.send_message(
             chat_id=update.effective_chat.id, text="Hello! I'm your bot."
         )
+
+    async def command_help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
+        """Sends a help message listing available commands based on the user's access."""
+        user_id = update.effective_user.id
+        available_commands = []
+
+        # Iterate over registered commands to check access for each
+        for command in self._COMMANDS.keys():
+            if self.ac_manager.check_tg_command_access(str(user_id), command):
+                available_commands.append(f"/{command}")
+
+        help_text = "Available Commands:\n" + "\n".join(available_commands)
+        await context.bot.send_message(chat_id=update.effective_chat.id, text=help_text)
 
     def error_handler(self, update, context):
         # Log Errors caused by Updates or notify users of error, etc.
@@ -137,11 +166,11 @@ class BaseTelegramBot:
         async def wrapper(
             update: Update, context: ContextTypes.DEFAULT_TYPE, *args, **kwargs
         ):
-            logging.info(f"Command triggered: {command_name}")
+            self.logger.info(f"Command triggered: {command_name}")
             user_id = update.effective_user.id
 
             if self.ac_manager.check_tg_command_access(str(user_id), command_name):
-                return await func(update, context, *args, **kwargs)
+                return await func(self, update, context, *args, **kwargs)
             else:
                 logging.warning(
                     f"Unauthorized access attempted from {update.effective_user}"
@@ -155,13 +184,10 @@ class BaseTelegramBot:
 
     def _register_command_handlers(self):
         """Registers all bot commands based on methods named with the 'command_' prefix."""
-        for attr_name in dir(self):
-            if callable(getattr(self, attr_name)) and attr_name.startswith("command_"):
-                method = getattr(self, attr_name)
-                wrapped_method = self._command_wrapper(method)
-                command_name = attr_name[len("command_") :]  # noqa E203
-                self.logger.info(f"Registering command: {command_name}")
-                self.app.add_handler(CommandHandler(command_name, wrapped_method))
+        for command_name, method in self._COMMANDS.items():
+            wrapped_method = self._command_wrapper(method)
+            self.logger.info(f"Registering command: {command_name}")
+            self.app.add_handler(CommandHandler(command_name, wrapped_method))
 
     async def run(self, message_queue: queue.Queue):
         self._register_command_handlers()
