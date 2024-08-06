@@ -1,20 +1,32 @@
 # Home Server
 
-The Home Server setup adopts a refined two-tier Docker stack architecture with dual Nginx instances to enhance security and flexibility. Nginx A serves as the edge-facing reverse proxy for secure external communications, while Nginx B handles internal SSL termination and forwards requests to the rootless Docker stack. This document outlines the updated setup and configuration process, emphasizing the new communication flow, security considerations, and development guidelines.
+The Home Server project is designed as a robust and secure platform for personal infrastructure management
+using two Docker stacks. It consists of various services, including web-facing
+and internal utilities, each isolated within Docker containers to maximize security and operational efficiency.
+The primary components of the infrastructure setup include two Nginx instances, `edge` and `internal`, serving
+as internet-facing and internal reverse proxies, respectively.
 
 
 ## Overview of Design
 
+Containers are discriminated between *infrastructure* and *services*.
+
+### Versioning
+
+Each container is versioned via a variable in the `version.py` file in each corresponding directory.
+Version bumps are done with `python bumpversion.py <service> <part>`.
+
+
 ### Security Considerations
 
 #### Secure Communications
-- **SSL for External Communication (Nginx A)**: Utilizes SSL certificates from known CAs (e.g., Let's Encrypt) for secure communications between Nginx A and the end-users, ensuring data confidentiality and integrity.
+- **SSL for External Communication (Nginx A)**: Utilizes SSL certificates from known CAs (e.g., Let's Encrypt) for secure communications between Nginx A and the end-users
 - **Internal Communication**:
-  - **mTLS between Nginx A and Nginx B**: Implements Mutual TLS (mTLS) for secure internal communication between the two Nginx instances, ensuring both parties authenticate each other.
-  - Communication between Nginx B and services occurs within a Docker bridge network, without SSL, relying on Docker's network isolation for security.
+  - **mTLS between Nginx edge and Nginx internal**: Implements Mutual TLS (mTLS) for secure internal communication between the two Nginx instances, ensuring both parties authenticate each other.
+  - Communication between Nginx internal and services occurs within a Docker bridge network, without SSL, relying on Docker's network isolation for security.
 
 
-#### User Identity Management
+#### User Identity Management for Protected Zone
 - **Authentication via Vouch**: User identity is enforced through a Vouch whitelist, along with the forwarding of user identity information contained within the `X-Vouch-Idp-Token` header by Nginx to the application.
 - **Token Verification**: Applications can verify user identity by parsing the `X-Vouch-Idp-Token`, which follows the format `<base64-header>.<base64-payload>.<base64-signature>`.
 
@@ -24,9 +36,14 @@ The Home Server setup adopts a refined two-tier Docker stack architecture with d
 ### Setup Components
 
 #### Reverse Proxy Configuration
-- **Nginx A**: Acts as the edge-facing reverse proxy, handling SSL/TLS for external communications. SSL certificates from recognized CAs should be configured here.
-- **Vouch**: Serves as the middleware handling authentication. Configuration files are located at `config/vouch/config.yaml`.
-- **Nginx B**: Positioned between Nginx A and the internal services, Nginx B terminates the SSL connection from Nginx A (using mTLS) and forwards requests to the appropriate services within the Docker network. Here, self-signed certificates or certificates from a private CA can be utilized for mTLS.
+- **Nginx edge**: Acts as the edge-facing reverse proxy, handling SSL/TLS for external communications.
+                  SSL certificates from recognized CAs should be configured here.
+- **Vouch**: Serves as the middleware handling authentication. Configuration files are
+             located at `config/vouch/config.yaml`.
+- **Nginx internal**: Positioned between Nginx edge and the internal services, Nginx internal terminates
+                      the SSL connection from Nginx edge (using mTLS) and forwards requests to the appropriate
+                      services within the Docker network. Here, self-signed certificates or certificates from
+                      a private CA can be utilized for mTLS.
 - **Auth0 Authorization Configuration**:
    - Navigate to your application settings on your [Auth0 Dashboard](https://manage.auth0.com).
    - Under the `Connections` tab, disable `Username-Password-Authentication` and enable `google-oauth2`.
@@ -35,7 +52,7 @@ The Home Server setup adopts a refined two-tier Docker stack architecture with d
 
 ### Configuration Steps
 
-0. Make sure rootless docker runs on boot: 
+0. Make sure rootless docker runs on boot:
 ```bash
 sudo loginctl enable-linger <user>
 ```
@@ -161,7 +178,7 @@ openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
 ### Connectivity and Firewall
 
 Exposing ports within docker compose should bypass UFW rules.
-However, `nginx_edge` needs to access host net to forward requests to `nginx_internal`, 
+However, `nginx_edge` needs to access host net to forward requests to `nginx_internal`,
 and for that it needs the `host.docker.internal`.
 In my case, I had to **enable port 8443 on UFW** for enabling such inter-nginx communication.
 
