@@ -1,0 +1,27 @@
+[
+    {
+        "name": "Invoice service",
+        "link": "/protected/internal/invoice",
+        "description": "Streamlit server for generating invoices"
+    },
+    {
+        "name": "Grafana Dashboard",
+        "link": "",
+        "description": "Monitoring with telegraf -> prometheus -> grafana stack"
+    },
+    {
+        "name": "Telegram Bot",
+        "link": "",
+        "description": "Telegram bot server"
+    },
+    {
+        "name": "Debug Edge Proxy",
+        "link": "/protected/debug_nginx_edge",
+        "description": "See HTTP headers and cookies within edge nginx"
+    },
+    {
+        "name": "Debug Internal Proxy",
+        "link": "/protected/internal/debug_nginx_internal",
+        "description": "See HTTP headers and cookies within internal nginx"
+    }
+]

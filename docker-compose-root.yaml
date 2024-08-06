@@ -1,0 +1,116 @@
+
+version: "3.8"
+
+services:
+
+  nginx_edge:
+    image: nginx
+    ports:
+      - "80:80"  # HTTP
+      - "443:443" # HTTPS
+    volumes:
+      # SSL Certificates
+      - ./infrastructure/nginx_edge/certs:/certs/edge:ro                                           # certs with public internet
+      - ./infrastructure/nginx_internal/certs/nginxInternal.crt:/certs/internal/nginxInternal.crt   # cert of nginx internal
+      - /etc/ssl/certs/dhparam.pem:/etc/ssl/certs/dhparam.pem:ro
+      - ./ca.crt:/certs/ca.crt:ro
+      # for symbolic link resolution of certificates
+      - /etc/letsencrypt/:/etc/letsencrypt:ro
+      # Nginx config file
+      - ./infrastructure/nginx_edge/config:/etc/nginx/conf.d:ro
+      # Nginx static files
+      - ./infrastructure/nginx_edge/html:/usr/share/nginx/html:ro
+
+    restart: always
+    # command: ["/bin/sh", "-c", "while :; do sleep 1; done"] # debugging
+    networks:
+      - edge_to_vouch
+      - edge_to_grafana
+    depends_on:
+      - vouch
+      - debug_nginx_edge
+      - grafana
+    extra_hosts:
+      # access host's network to forward requests to nginx internal, see https://stackoverflow.com/a/24326540/11552622
+      - "host.docker.internal:host-gateway"
+
+  vouch:
+    image: voucher/vouch-proxy:latest-arm
+    # do NOT expose ports: nginx-vouch communication occurs within docker bridge network
+    #                      more secure since I didn't set up SSL between nginx-vouch
+    volumes:
+      - ./infrastructure/vouch/config:/config:ro
+
+    networks:
+      - edge_to_vouch
+    env_file:
+      - ./infrastructure/vouch/.env
+    restart: always
+
+  debug_nginx_edge:
+    build: services/debug_nginx
+    networks:
+      - edge_to_vouch
+    restart: always
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor-arm64:v0.49.1  # Use the version that matches your needs
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
+    devices:
+      - /dev/kmsg:/dev/kmsg
+    restart: always
+    networks:
+      - prometheus_to_cadvisor
+
+  grafana:
+    image: grafana/grafana:latest
+    volumes:
+      - ./services/monitor/config/grafana.ini:/etc/grafana/grafana.ini:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    networks:
+      - grafana_to_prometheus
+      - edge_to_grafana
+    restart: always
+
+  # Container ingesting and storing cadvisor data
+  prometheus:
+    image: prom/prometheus:latest
+    volumes:
+      # prometheus config file
+      - ./services/monitor/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      # persistent storage
+      - prometheus_data:/prometheus
+    # we don't need to access prometheus from host
+    #ports:
+    #   - "9090:9090"
+    networks:
+      - prometheus_to_cadvisor
+      - grafana_to_prometheus
+    depends_on:
+      - cadvisor
+    restart: always
+
+networks:
+  edge_to_vouch:
+    driver: bridge
+
+  grafana_to_prometheus:
+    driver: bridge
+
+  prometheus_to_cadvisor:
+    driver: bridge
+
+  edge_to_grafana:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:

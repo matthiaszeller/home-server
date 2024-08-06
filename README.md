@@ -1,55 +1,193 @@
 # Home Server
 
-
-## Development
-
-### Adding Services
-
-Create a new directory `services/myservice`, containing:
-
-- `main.py` file:
-```python
-from common.config import setup
-setup(__file__)
-# other imports
-from time import sleep
-
-if __name__ == '__main__':
-    sleep(1)
-```
-- `src/` directory with all service-specific code
-- `config/` directory with service-specific config files (create even if empty)
-- `requirements.txt`
-- `Dockerfile`:
-```dockerfile
-FROM python:3.10-slim
-
-WORKDIR /app
-
-COPY ./services/<myservice> .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY ./common ./common
-COPY ./config/* ./config
+The Home Server project is designed as a robust and secure platform for personal infrastructure management
+using two Docker stacks. It consists of various services, including web-facing
+and internal utilities, each isolated within Docker containers to maximize security and operational efficiency.
+The primary components of the infrastructure setup include two Nginx instances, `edge` and `internal`, serving
+as internet-facing and internal reverse proxies, respectively.
 
 
-ENTRYPOINT ["tail", "-f", "/dev/null"]
-```
+## Overview of Design
 
-And add in the `docker-compose.yaml`:
-```yaml
-  myservice:
-    build:
-      dockerfile: services/<myservice>/Dockerfile
-    depends_on:
-      - ...
-    networks:
-      - app_net
-```
+Containers are discriminated between *infrastructure* and *services*.
 
-### Test Locally
+### Versioning
 
-For quick testing and debugging purposes, run services as python package, e.g.,
+Each container is versioned via a variable in the `version.py` file in each corresponding directory.
+Version bumps are done with `python bumpversion.py <service> <part>`.
+
+
+### Security Considerations
+
+#### Secure Communications
+- **SSL for External Communication (Nginx A)**: Utilizes SSL certificates from known CAs (e.g., Let's Encrypt) for secure communications between Nginx A and the end-users
+- **Internal Communication**:
+  - **mTLS between Nginx edge and Nginx internal**: Implements Mutual TLS (mTLS) for secure internal communication between the two Nginx instances, ensuring both parties authenticate each other.
+  - Communication between Nginx internal and services occurs within a Docker bridge network, without SSL, relying on Docker's network isolation for security.
+
+
+#### User Identity Management for Protected Zone
+- **Authentication via Vouch**: User identity is enforced through a Vouch whitelist, along with the forwarding of user identity information contained within the `X-Vouch-Idp-Token` header by Nginx to the application.
+- **Token Verification**: Applications can verify user identity by parsing the `X-Vouch-Idp-Token`, which follows the format `<base64-header>.<base64-payload>.<base64-signature>`.
+
+
+## Getting Started
+
+### Setup Components
+
+#### Reverse Proxy Configuration
+- **Nginx edge**: Acts as the edge-facing reverse proxy, handling SSL/TLS for external communications.
+                  SSL certificates from recognized CAs should be configured here.
+- **Vouch**: Serves as the middleware handling authentication. Configuration files are
+             located at `config/vouch/config.yaml`.
+- **Nginx internal**: Positioned between Nginx edge and the internal services, Nginx internal terminates
+                      the SSL connection from Nginx edge (using mTLS) and forwards requests to the appropriate
+                      services within the Docker network. Here, self-signed certificates or certificates from
+                      a private CA can be utilized for mTLS.
+- **Auth0 Authorization Configuration**:
+   - Navigate to your application settings on your [Auth0 Dashboard](https://manage.auth0.com).
+   - Under the `Connections` tab, disable `Username-Password-Authentication` and enable `google-oauth2`.
+   - Create an admin role under `User Management/Roles` and assign users accordingly in `User Management/Users`.
+
+
+### Configuration Steps
+
+0. Make sure rootless docker runs on boot:
 ```bash
-python -m services.tgbot.main
+sudo loginctl enable-linger <user>
+```
+
+1. **Nginx A SSL Configuration**: Configure Nginx A with SSL certificates obtained from a recognized CA to secure communications with end users.
+
+2. **Setting up mTLS between Nginx A and Nginx B**:
+   - Generate self-signed certificates or use certificates from a private CA for both Nginx A and Nginx B to establish a trusted mTLS connection.
+   - Update Nginx A's configuration to require client certificates for connections to Nginx B, specifying paths to the server's certificate, its private key, and the CA certificate.
+   - Configure Nginx B to trust Nginx A's certificate and to present its own certificate to Nginx A during the SSL handshake.
+
+3. **Vouch Configuration with Auth0**: Adjust the Vouch configuration file to include your specific settings and secrets as shown in the provided YAML structure. This setup integrates with Auth0 for authentication. A template file is in `config/vouch/config-template.yaml`.
+
+### Configuring mTLS between Nginx and Services
+
+1. **Generate Certificates**: Follow the steps to generate CA, Nginx, and service certificates.
+   1. CA certificate
+        ```shell
+        # generate CA private key
+        openssl genrsa -out ca.key 2048
+        # generate CA certificate
+        openssl req -x509 -new -nodes -key ca.key -sha256 -days 1024 -out ca.crt
+        ```
+   2. Server Certificate for nginx:
+        ```shell
+        # private key for nginx
+        openssl genrsa -out nginx.key 2048
+        # CSR for nginx
+        openssl req -new -key nginx.key -out nginx.csr
+        # sign CSR with CA
+        openssl x509 -req -in nginx.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out nginx.crt -days 365 -sha256
+        ```
+   3. Client certificate
+        ```shell
+        # private key for service
+        openssl genrsa -out service.key 2048
+        # CSR for service
+        openssl req -new -key service.key -out service.csr
+        # sign CSR with CA
+        openssl x509 -req -in service.csr -CA ca.crt -CAkey ca.key -CAcreateserial -out service.crt -days 365 -sha256
+        ```
+2. **Configure Nginx for mTLS**: Update the nginx configuration to require client certificates for secure locations, specifying paths to the server's certificate, its private key, and the CA certificate.
+    ```
+        location /protected/myservice {
+            ssl_verify_client on; # Require a valid client certificate
+            rewrite ^/protected/myservice(.*) /$1 break;
+            proxy_pass http://myservice:5000; # Adjust as necessary
+            proxy_set_header Host $host;
+            proxy_set_header X-Real-IP $remote_addr;
+            # Ensure the proxy forwards the client cert for validation
+            proxy_set_header X-Client-Verify $ssl_client_verify;
+            proxy_set_header X-Client-DN $ssl_client_s_dn;
+            proxy_set_header X-Client-Cert $ssl_client_cert;
+            include /etc/nginx/conf.d/common-headers.conf;
+        }
+    ```
+3. **Service Configuration**: Ensure your services are configured to present their client certificates when communicating with Nginx. For Python services, include the necessary certificate paths in your service's HTTP client calls.
+
+
+### Adding New Services
+
+For adding a new Python-based service, follow these steps:
+
+1. **Service Directory**: create a directory `services/myservice`, containing:
+   * `src/` directory
+   * `config/` directory
+   * `Dockerfile`
+       ```dockerfile
+        FROM python:3.11-slim
+
+        WORKDIR /app
+
+        COPY ./services/<myservice> .
+        RUN pip install --no-cache-dir -r requirements.txt
+
+        COPY ./common ./common
+        COPY ./config/* ./config
+
+
+        ENTRYPOINT ["tail", "-f", "/dev/null"]
+        ```
+   * `main.py`, which must start with
+
+       ```python
+        from common.config import setup
+        setup(__file__)
+        ```
+     this enables using shared python modules (in `/common`)
+
+2. **Docker Compose**: update `docker-compose-rootless.yaml`
+
+## Local Testing and Debugging
+
+For testing services locally, execute them as Python package:
+```shell
+python -m services.<service_name>.main
+```
+
+# TODO
+
+- incorporate in the readme instructions for setting up mTLS between nginx_internal and nginx_edge:
+```shell
+# Generate the certificate for Nginx Edge with "localhost" as the CN
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+-keyout infrastructure/nginx_edge/certs/nginxEdge.key \
+-out infrastructure/nginx_edge/certs/nginxEdge.crt \
+-subj "/CN=localhost"
+
+# Generate the certificate for Nginx Internal with "host.docker.internal" as the CN
+openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+-keyout infrastructure/nginx_internal/certs/nginxInternal.key \
+-out infrastructure/nginx_internal/certs/nginxInternal.crt \
+-subj "/CN=host.docker.internal"
+```
+
+- add instructions for nginx SSL certificates with certbot & letsencrypt:
+    - `sudo ln -s /etc/letsencrypt/live/<mydomain>/fullchain.pem infrastructure/nginx_edge/certs/fullchain.pem`
+    - `sudo ln -s /etc/letsencrypt/live/<mydomain>/privkey.pem infrastructure/nginx_edge/certs/privkey.pem`
+
+
+## Troubleshooting
+
+### Connectivity and Firewall
+
+Exposing ports within docker compose should bypass UFW rules.
+However, `nginx_edge` needs to access host net to forward requests to `nginx_internal`,
+and for that it needs the `host.docker.internal`.
+In my case, I had to **enable port 8443 on UFW** for enabling such inter-nginx communication.
+
+
+## Deployment on RaspberryPi
+
+#### Docker stats & Memory usage
+
+If `docker stats` doesn't show any memory usage (0.0%), according to [this post](https://stackoverflow.com/questions/45541242/docker-stats-shows-zero-memory-usage-even-for-running-containers), simply add to `/boot/firmware/cmdline.txt`:
+```
+cgroup_enable=cpuset cgroup_enable=memory cgroup_memory=1
 ```
