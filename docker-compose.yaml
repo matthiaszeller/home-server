@@ -5,8 +5,10 @@ services:
 
   dns:
     build: infrastructure/dns
-    env_file:
-      - infrastructure/dns/.env
+    environment:
+      CLOUDFARE_TOKEN: ${CLOUDFARE_TOKEN}
+      CLOUDFARE_ROOT_DOMAIN: ${CLOUDFARE_ROOT_DOMAIN}
+      CLOUDFARE_ZONE_ID: ${CLOUDFARE_ZONE_ID}
     volumes:
       - ./infrastructure/dns/logs:/app/logs/
     restart: always
