@@ -1,15 +1,11 @@
-
-
 import asyncio
 import signal
-import threading
 
 from common.config import setup
 
 setup(__file__)
-from src.rest_api import run_flask_app
-from src.bot import run_bot
-
+from src.bot import run_bot  # noqa: E402
+from src.rest_api import run_flask_app  # noqa: E402
 
 message_queue = asyncio.Queue()
 
@@ -41,10 +37,12 @@ async def async_main():
 
     # Register signal handlers to ensure graceful shutdown
     for sig in (signal.SIGINT, signal.SIGTERM):
-        loop.add_signal_handler(sig, lambda: asyncio.create_task(graceful_shutdown(sig, tasks)))
+        loop.add_signal_handler(
+            sig, lambda: asyncio.create_task(graceful_shutdown(sig, tasks))
+        )
 
     await main()
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     asyncio.run(async_main())

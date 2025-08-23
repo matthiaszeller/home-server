@@ -1,43 +1,56 @@
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.5.0  # Use the latest version
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
     hooks:
-      - id: trailing-whitespace
-        # Removes trailing whitespace at the end of lines.
-      - id: end-of-file-fixer
-        # Ensures that a file is either empty or ends with one newline.
-      - id: check-yaml
-        # Checks YAML files for syntax errors.
-      - id: check-json
-        # Checks JSON files for syntax errors.
-      - id: check-xml
-        # Checks XML files for syntax errors.
+    -   id: trailing-whitespace # Trailing whitespace checker
+    -   id: check-yaml # Check for YAML syntax errors
+    -   id: check-json # Check for JSON syntax errors
+    -   id: debug-statements # Check for pdb, ipdb, and print statements
+    -   id: end-of-file-fixer # Ensure files end in a newline
+    # -   id: check-added-large-files # Prevent large files from being committed
+    -   id: check-merge-conflict # Check for files that contain merge conflict strings
+    -   id: check-symlinks # Check for symlinks which would be broken in checkout
 
-  - repo: https://github.com/psf/black
-    rev: 24.2.0  # Use the latest version
+-   repo: https://github.com/psf/black
+    rev: 25.1.0
     hooks:
-      - id: black
-        language_version: python3  # Specify your Python version
-        # Formats Python code to adhere to the Black code style.
+    -   id: black
+        name: black
+        types: [python]
+        description: 'Black is an uncompromising Python code formatter'
 
-  - repo: https://github.com/pycqa/flake8
-    rev: 7.0.0  # Use the latest version
+-   repo: https://github.com/pycqa/isort
+    rev: 6.0.1
     hooks:
-      - id: flake8
-        additional_dependencies: ['flake8-bugbear', 'flake8-comprehensions']
-        # max line length to 110
-        args: ['--max-line-length=110']
-        # Lints Python code for errors, with additional checks from plugins.
+    -   id: isort
+        name: isort
+        types: [python]
+        description: 'isort is a Python utility for sorting imports'
+        args: ["--profile", "black"] # REQUIRED, otherwise might have infinite loop
+                                     # because of black-isort disagreement
 
-#  - repo: https://github.com/prettier/prettier
-#    rev: '3.2.5'  # Use the latest version
-#    hooks:
-#      - id: prettier
-#        # Formats JavaScript, CSS, JSON, and other file types.
-
-  - repo: https://github.com/pycqa/isort
-    rev: 5.13.0  # Use the latest version
+-   repo: https://github.com/pycqa/flake8
+    rev: 7.3.0
     hooks:
-      - id: isort
+    -   id: flake8
+        name: flake8
+        types: [python]
+        description: 'Flake8 is a tool for enforcing coding style in Python code'
+        args: [
+            '--max-line-length=300',
+            '--extend-ignore=E203'  # black compat: whitespace before ':'
+        ]
 
-  # Add other repositories and hooks here following the same structure.
+# -   repo: https://github.com/PyCQA/bandit
+#     rev: 1.8.6
+#     hooks:
+#     -   id: bandit
+#         name: bandit
+#         description: 'Bandit is a tool for finding common security issues in Python code'
+#         types: [python]
+
+- repo: https://github.com/Yelp/detect-secrets
+  rev: v1.5.0
+  hooks:
+    - id: detect-secrets
+      description: 'Detect secrets in code to prevent sensitive data leaks'
