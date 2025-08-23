@@ -4,9 +4,9 @@ services:
   dns:
     build: infrastructure/dns
     environment:
-      CLOUDFARE_TOKEN: ${CLOUDFARE_TOKEN}
-      CLOUDFARE_ROOT_DOMAIN: ${CLOUDFARE_ROOT_DOMAIN}
-      CLOUDFARE_ZONE_ID: ${CLOUDFARE_ZONE_ID}
+      CLOUDFLARE_TOKEN: ${CLOUDFLARE_TOKEN}
+      CLOUDFLARE_ROOT_DOMAIN: ${CLOUDFLARE_ROOT_DOMAIN}
+      CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID}
     volumes:
       - ./infrastructure/dns/logs:/app/logs/
     restart: always

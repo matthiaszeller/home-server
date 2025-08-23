@@ -23,8 +23,8 @@ def get_public_ip() -> str | None:
         return None
 
 
-def get_cloudfare_api_header():
-    api_token = get_env_var("CLOUDFARE_TOKEN")
+def get_cloudflare_api_header():
+    api_token = get_env_var("CLOUDFLARE_TOKEN")
 
     return {
         "Authorization": f"Bearer {api_token}",
@@ -32,7 +32,7 @@ def get_cloudfare_api_header():
     }
 
 
-def cloudfare_api_call(
+def cloudflare_api_call(
     endpoint: str, method: str = "GET", data: dict = None, raise_error: bool = True
 ) -> dict:
     def is_error_status(status: int):
@@ -43,7 +43,7 @@ def cloudfare_api_call(
     print("sending", method, "request to", url)
     response = request_fun(
         url,
-        headers=get_cloudfare_api_header(),
+        headers=get_cloudflare_api_header(),
         json=data,
     )
     response_data = response.json()
@@ -53,10 +53,10 @@ def cloudfare_api_call(
     return response_data
 
 
-def get_cloudfare_zone_id() -> str:
-    return get_env_var("CLOUDFARE_ZONE_ID")
+def get_cloudflare_zone_id() -> str:
+    return get_env_var("CLOUDFLARE_ZONE_ID")
 
-    # res = cloudfare_api_call("zones", "GET")
+    # res = cloudflare_api_call("zones", "GET")
     # for zone in res["result"]:
     #     if zone["name"] == domain:
     #         return zone["id"]
@@ -64,12 +64,12 @@ def get_cloudfare_zone_id() -> str:
     # raise RuntimeError(f"domain {domain} does not exist")
 
 
-def get_cloudfare_record_id(zone_id: str) -> str:
+def get_cloudflare_record_id(zone_id: str) -> str:
     """
     Only update the root A record.
     """
-    root_domain = get_env_var("CLOUDFARE_ROOT_DOMAIN")
-    res = cloudfare_api_call(f"zones/{zone_id}/dns_records")
+    root_domain = get_env_var("CLOUDFLARE_ROOT_DOMAIN")
+    res = cloudflare_api_call(f"zones/{zone_id}/dns_records")
     for record in res["result"]:
         if record["name"] == root_domain:
             return record["id"]
@@ -77,10 +77,10 @@ def get_cloudfare_record_id(zone_id: str) -> str:
     raise RuntimeError(f"record_id not found for root domain {root_domain}")
 
 
-def overwrite_cloudfare_dns_record(
+def overwrite_cloudflare_dns_record(
     zone_id: str, record_id: str, ip: str, name: str, type: str, proxied: bool
 ):
-    return cloudfare_api_call(
+    return cloudflare_api_call(
         f"zones/{zone_id}/dns_records/{record_id}",
         "PUT",
         data={"content": ip, "name": name, "proxied": proxied, "type": type},
@@ -89,14 +89,14 @@ def overwrite_cloudfare_dns_record(
 
 if __name__ == "__main__":
     ip = get_public_ip()
-    zone_id = get_cloudfare_zone_id()
-    record_id = get_cloudfare_record_id(zone_id)
+    zone_id = get_cloudflare_zone_id()
+    record_id = get_cloudflare_record_id(zone_id)
 
-    res = overwrite_cloudfare_dns_record(
+    res = overwrite_cloudflare_dns_record(
         zone_id,
         record_id,
         ip,
-        get_env_var("CLOUDFARE_ROOT_DOMAIN"),
+        get_env_var("CLOUDFLARE_ROOT_DOMAIN"),
         type="A",
         proxied=True,
     )
