@@ -12,6 +12,8 @@ RUN echo "*/10 * * * * python /app/main.py > /app/logs/cron.log 2>&1" >> /etc/cr
 
 # copy scripts
 COPY main.py .
+COPY health.py .
+COPY providers providers
 
 # health probe
 HEALTHCHECK --interval=60s --timeout=3s --start-period=600s --retries=2 \

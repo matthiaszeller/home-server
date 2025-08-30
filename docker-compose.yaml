@@ -7,6 +7,8 @@ services:
       CLOUDFLARE_TOKEN: ${CLOUDFLARE_TOKEN}
       CLOUDFLARE_ROOT_DOMAIN: ${CLOUDFLARE_ROOT_DOMAIN}
       CLOUDFLARE_ZONE_ID: ${CLOUDFLARE_ZONE_ID}
+      DUCKDNS_TOKEN: ${DUCKDNS_TOKEN}
+      DUCKDNS_DOMAIN: ${DUCKDNS_DOMAIN}
     volumes:
       - ./infrastructure/dns/logs:/app/logs/
     restart: always

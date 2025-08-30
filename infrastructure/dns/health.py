@@ -1,12 +1,13 @@
-import json
 import sys
 from pathlib import Path
 
+from providers import DNSUpdateResult
+
 
 def check_logs(file: Path) -> bool:
-    res = json.loads(file.read_text())
+    res = DNSUpdateResult.model_validate_json(file.read_text())
 
-    return res.get("success", False) is True
+    return res.is_successful
 
 
 def main():
@@ -17,3 +18,7 @@ def main():
         if not check_logs(f):
             print(f"DNS health check failed: {f}")
             sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

@@ -4,7 +4,7 @@ from urllib.parse import urljoin
 
 import requests
 
-from .base import BaseDNSProvider
+from .base import BaseDNSProvider, DNSUpdateResult
 
 BASE_URL = "https://api.cloudflare.com/client/v4/"
 
@@ -81,7 +81,7 @@ class CloudFlareDNSProvider(BaseDNSProvider):
             data={"content": ip, "name": name, "proxied": proxied, "type": type},
         )
 
-    def _run(self) -> dict:
+    def _run(self) -> DNSUpdateResult:
         ip = self.get_public_ip()
         zone_id = self.get_cloudflare_zone_id()
         record_id = self.get_cloudflare_record_id(zone_id)
@@ -94,5 +94,7 @@ class CloudFlareDNSProvider(BaseDNSProvider):
             type="A",
             proxied=True,
         )
+        if "ip" not in res:
+            res["ip"] = ip
 
-        return res
+        return DNSUpdateResult.model_validate(res)

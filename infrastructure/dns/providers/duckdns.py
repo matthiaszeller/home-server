@@ -1,6 +1,6 @@
 import requests
 
-from .base import BaseDNSProvider
+from .base import BaseDNSProvider, DNSUpdateResult
 
 BASE_URL = "https://www.duckdns.org/update"
 
@@ -8,7 +8,7 @@ BASE_URL = "https://www.duckdns.org/update"
 class DuckDNSProvider(BaseDNSProvider):
     name = "duckdns"
 
-    def _run(self) -> dict:
+    def _run(self) -> DNSUpdateResult:
         token = self.get_env_var("DUCKDNS_TOKEN")
         domain = self.get_env_var("DUCKDNS_DOMAIN")
         ip = self.get_public_ip()
@@ -22,9 +22,12 @@ class DuckDNSProvider(BaseDNSProvider):
         response = requests.get(BASE_URL, params=params)
         response.raise_for_status()
 
-        return {
-            "success": True,
-            "ip": ip,
-            "message": response.text.strip(),
-            "errors": [],
-        }
+        message = response.text
+        messages = [] if message.lower().strip() != "ok" else [message]
+        errors = [] if messages else [message]
+
+        return DNSUpdateResult(
+            ip=ip,
+            messages=messages,
+            errors=errors,
+        )
