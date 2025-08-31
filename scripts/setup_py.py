@@ -1,5 +1,6 @@
 import argparse
 import logging
+from contextlib import contextmanager
 
 import git
 
@@ -14,13 +15,17 @@ REMOTE_CONDA_ENV = "home-server-ctrl"
 logger = logging.getLogger(__name__)
 
 
-def init_ssh(*args, **kwargs) -> SSH:
+@contextmanager
+def init_ssh(*args, **kwargs):
     ssh = SSH(*args, **kwargs)
-    if not ssh.ping():
-        raise RuntimeError("Cannot connect to remote host")
 
-    logger.info(f"SSH connection established to {args} {kwargs}")
-    return ssh
+    with ssh:
+        if not ssh.ping():
+            raise RuntimeError("Cannot connect to remote host")
+
+        logger.info(f"SSH connection established to {args} {kwargs}")
+
+        yield ssh
 
 
 def get_repo_url() -> str:
@@ -50,14 +55,14 @@ def main():
     )
 
     # 0) Initialize SSH connection
-    ssh = init_ssh(args.host)
+    with init_ssh(args.host) as ssh:
 
-    # 1) Conda
-    ensure_conda(ssh, REMOTE_CONDA_ENV, python_version="3.13")
+        # 1) Conda
+        ensure_conda(ssh, REMOTE_CONDA_ENV, python_version="3.13")
 
-    # 2) Repo
-    repo_url = get_repo_url()
-    ensure_repo(ssh, repo_url, REMOTE_DEST)
+        # 2) Repo
+        repo_url = get_repo_url()
+        ensure_repo(ssh, repo_url, REMOTE_DEST)
 
 
 if __name__ == "__main__":
