@@ -33,6 +33,12 @@ Version bumps are done with `python bumpversion.py <service> <part>`.
 
 ## Getting Started
 
+### [WIP] Remote server auto-setup
+
+1. Install a linux OS on the server
+2. Make sure to enable ssh access to github (add host to known_hosts, add public key to github portal)
+
+
 ### Setup Components
 
 #### Reverse Proxy Configuration
