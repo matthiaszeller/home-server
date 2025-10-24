@@ -1,0 +1,144 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 1,
+  "schemaVersion": 39,
+  "style": "dark",
+  "tags": ["loki", "logs", "starter"],
+  "timezone": "browser",
+  "title": "Loki Logs Overview",
+  "uid": "loki-logs-starter",
+  "version": 1,
+  "refresh": "5s",
+  "templating": {
+    "list": [
+      {
+        "name": "service",
+        "type": "query",
+        "datasource": "Loki",
+        "definition": "label_values(container_label_com_docker_compose_service)",
+        "includeAll": true,
+        "refresh": 2,
+        "sort": 1,
+        "current": { "text": "All", "value": "$__all" }
+      }
+    ]
+  },
+  "panels": [
+    {
+      "type": "timeseries",
+      "title": "Log Entries per Second",
+      "datasource": "Loki",
+      "gridPos": { "x": 0, "y": 0, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum by (container_label_com_docker_compose_service) (rate({container_label_com_docker_compose_service=~\"$service\"}[1m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "logs/s",
+          "color": { "mode": "palette-classic" },
+          "custom": { "drawStyle": "line", "fillOpacity": 40 }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "right" }
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Error Log Rate",
+      "datasource": "Loki",
+      "gridPos": { "x": 12, "y": 0, "w": 12, "h": 7 },
+      "targets": [
+        {
+          "expr": "sum(rate({container_label_com_docker_compose_service=~\"$service\"} |= \"error\" [1m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "logs/s",
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.1 },
+              { "color": "red", "value": 1 }
+            ]
+          }
+        }
+      },
+      "options": {
+        "reduceOptions": { "calcs": ["lastNotNull"] },
+        "orientation": "horizontal"
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Live Logs Stream",
+      "datasource": "Loki",
+      "gridPos": { "x": 0, "y": 7, "w": 24, "h": 9 },
+      "targets": [
+        {
+          "expr": "{container_label_com_docker_compose_service=~\"$service\"}",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Filtered Errors & Warnings",
+      "datasource": "Loki",
+      "gridPos": { "x": 0, "y": 16, "w": 24, "h": 9 },
+      "targets": [
+        {
+          "expr": "{container_label_com_docker_compose_service=~\"$service\"} |= \"error\" or |= \"fail\" or |= \"warn\"",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showTime": true,
+        "showLabels": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true
+      }
+    },
+    {
+      "type": "table",
+      "title": "Top 5 Noisy Services (Logs per Minute)",
+      "datasource": "Loki",
+      "gridPos": { "x": 0, "y": 25, "w": 24, "h": 7 },
+      "targets": [
+        {
+          "expr": "topk(5, rate({container_label_com_docker_compose_service!=\"\"}[1m]))",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 10 },
+              { "color": "red", "value": 100 }
+            ]
+          }
+        }
+      },
+      "options": { "showHeader": true }
+    }
+  ]
+}

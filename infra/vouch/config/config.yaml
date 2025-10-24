@@ -11,8 +11,10 @@ vouch:
 
   cookie:
     name: VouchCookie
-    secure: false
-    #domain: localhost
+    secure: true  # behind HTTPS, so this is safe
+    sameSite: Lax
+    maxAge: 86400  # 1 day
+
 
   # no jwt field, let vouch generate its own jwt.secret
 

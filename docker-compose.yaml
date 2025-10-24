@@ -1,8 +1,99 @@
 
 services:
 
+  ##########################################
+  # 🔐 Reverse Proxy & Authentication Layer #
+  ##########################################
+
+  nginx_edge:
+    image: nginx:latest
+    container_name: nginx_edge
+    ports:
+      - "8080:80"   # Remapped for rootless Docker
+      - "8443:443"  # Externally exposed HTTPS
+    volumes:
+      # SSL Certificates
+      - ./infra/nginx_edge/certs:/certs/edge:ro
+      - ./infra/nginx_internal/certs/nginxInternal.crt:/certs/internal/nginxInternal.crt:ro
+      - ./ca.crt:/certs/ca.crt:ro
+      - /etc/ssl/certs/dhparam.pem:/etc/ssl/certs/dhparam.pem:ro
+      - /etc/letsencrypt/:/etc/letsencrypt:ro
+
+      # Nginx config & static files
+      - ./infra/nginx_edge/config:/etc/nginx/conf.d:ro
+      - ./infra/nginx_edge/html:/usr/share/nginx/html:ro
+
+    depends_on:
+      - vouch
+      - grafana
+      - debug_nginx_edge
+    networks:
+      - edge
+      - internal
+      - monitoring
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped
+
+  vouch:
+    image: voucher/vouch-proxy:latest-arm
+    container_name: vouch
+    volumes:
+      - ./infra/vouch/config:/config:ro
+    env_file:
+      - ./infra/vouch/.env
+    networks:
+      - edge
+    restart: unless-stopped
+
+  debug_nginx_edge:
+    build: ./services/debug_nginx
+    container_name: debug_nginx_edge
+    networks:
+      - edge
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000"]
+      interval: 5s
+      timeout: 2s
+      retries: 10
+
+  ##########################################
+  # 🌐 Internal Reverse Proxy & Services   #
+  ##########################################
+
+  nginx_internal:
+    image: nginx:latest
+    container_name: nginx_internal
+    volumes:
+      - ./infra/nginx_internal/certs:/certs/internal:ro
+      - ./infra/nginx_edge/certs/nginxEdge.crt:/certs/edge/nginxEdge.crt:ro
+      - ./ca.crt:/certs/ca.crt:ro
+      - ./infra/nginx_internal/config:/etc/nginx/conf.d:ro
+      - ./infra/nginx_internal/html:/app/html:ro
+    ports:
+      - "9443:8443" # Internal access if needed
+    depends_on:
+      - invoice
+      - debug_nginx_internal
+    networks:
+      - internal
+    restart: unless-stopped
+
+  debug_nginx_internal:
+    build: ./services/debug_nginx
+    container_name: debug_nginx_internal
+    networks:
+      - internal
+    restart: unless-stopped
+
+  ##########################################
+  # 💼 Application Layer                   #
+  ##########################################
+
   dns:
-    build: infrastructure/dns
+    build: ./infra/dns
+    container_name: dns
     environment:
       CLOUDFLARE_TOKEN: ${CLOUDFLARE_TOKEN}
       CLOUDFLARE_ROOT_DOMAIN: ${CLOUDFLARE_ROOT_DOMAIN}
@@ -10,62 +101,121 @@ services:
       DUCKDNS_TOKEN: ${DUCKDNS_TOKEN}
       DUCKDNS_DOMAIN: ${DUCKDNS_DOMAIN}
     volumes:
-      - ./infrastructure/dns/logs:/app/logs/
-    restart: always
-
-  nginx_internal:
-    image: nginx
-    volumes:
-      # SSL Certificates
-      - ./infrastructure/nginx_internal/certs:/certs/internal:ro
-      - ./infrastructure/nginx_edge/certs/nginxEdge.crt:/certs/edge/nginxEdge.crt:ro
-      - ./ca.crt:/certs/ca.crt:ro
-      # Nginx config file
-      - ./infrastructure/nginx_internal/config:/etc/nginx/conf.d:ro
-      # Nginx static files
-      - ./infrastructure/nginx_internal/html:/app/html:ro
-    networks:
-      - app_net
-    depends_on:
-      - debug_nginx_internal
-      - invoice
-    ports:
-      - "8443:8443"
-    restart: always
-
-  debug_nginx_internal:
-    build: services/debug_nginx
-    networks:
-      - app_net
-    restart: always
-
-  #tgbot:
-  #  build:
-  #    dockerfile: services/tgbot/Dockerfile
-#
-  #  restart: always
-  #  networks:
-  #    - app_net
+      - ./infra/dns/logs:/app/logs/
+    restart: unless-stopped
 
   invoice:
-    build: services/self-employed
+    build: ./services/self-employed
+    container_name: invoice
     networks:
-      - app_net
-    restart: always
+      - internal
+    restart: unless-stopped
+
+  ##########################################
+  # 📊 Monitoring & Logging Stack          #
+  ##########################################
+
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: prometheus
+    volumes:
+      - ./infra/monitoring/config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:latest
+    container_name: loki
+    command: -config.file=/etc/loki/local-config.yaml
+    volumes:
+      - ./infra/monitoring/config/loki.yaml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:latest
+    container_name: promtail
+    user: "1000:1000"
+    volumes:
+      - /home/mazeller/.local/share/docker/containers:/var/lib/docker/containers:ro
+      - /run/user/1000/docker.sock:/var/run/docker.sock
+      - ./infra/monitoring/config/promtail.yaml:/etc/promtail/config.yml:ro
+    command: -config.file=/etc/promtail/config.yml
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    depends_on:
+      - prometheus
+      - loki
+    volumes:
+      - ./infra/monitoring/config/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ./infra/monitoring/config/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/monitoring/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    networks:
+      - monitoring
+      - edge
+    restart: unless-stopped
+    #ports:
+      #- "3000:3000"  # for testing, comment out otherwise
 
   cadvisor:
-    image: gcr.io/cadvisor/cadvisor-arm64:v0.49.1  # Use the version that matches your needs
+    image: gcr.io/cadvisor/cadvisor-arm64:v0.49.1
+    container_name: cadvisor
     volumes:
       - /:/rootfs:ro
       - /var/run:/var/run:ro
       - /sys:/sys:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
+      - /run/user/1000/docker.sock:/var/run/docker.sock:ro
     privileged: true
     devices:
       - /dev/kmsg:/dev/kmsg
-    restart: always
+    command:
+      - '--docker=unix:///var/run/docker.sock'
+    networks:
+      - monitoring
+    restart: unless-stopped
+
+  debug_ui:
+    build: ./infra/debug_ui
+    container_name: debug_ui
+    networks:
+      - edge
+      - internal
+      - monitoring
+    volumes:
+      - /run/user/1000/docker.sock:/var/run/docker.sock:ro
+      - ./infra/debug_ui/:/app:ro
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - APP_PORT=8501
+    ports:
+      - "8501:8501"
+    restart: unless-stopped
+
+##########################################
+# 🔗 Networks & Volumes
+##########################################
 
 networks:
-  app_net:
+  edge:
     driver: bridge
+  internal:
+    driver: bridge
+  monitoring:
+    driver: bridge
+
+volumes:
+  prometheus_data:
+  grafana_data:
+  loki_data:

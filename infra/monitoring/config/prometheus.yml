@@ -1,0 +1,29 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 30s
+
+scrape_configs:
+  # cAdvisor metrics (container-level)
+  - job_name: 'cadvisor'
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  # Prometheus self metrics
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']
+
+  # Node exporter (optional if you add it)
+  # - job_name: 'node'
+  #   static_configs:
+  #     - targets: ['node_exporter:9100']
+
+  # Loki metrics
+  - job_name: 'loki'
+    static_configs:
+      - targets: ['loki:3100']
+
+  # Grafana metrics (since 9.x+ exposes /metrics)
+  - job_name: 'grafana'
+    static_configs:
+      - targets: ['grafana:3000']
